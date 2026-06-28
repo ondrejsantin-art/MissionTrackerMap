@@ -81,7 +81,7 @@ class CalibrationController:
     def point_display_text(self, point: CalibrationPoint) -> str:
         return f"{point.name}   ({point.pixel.x},{point.pixel.y})"
 
-    def compute_affine_transform(self) -> tuple[list[float] | None, float | None]:
+    def compute_affine_transform(self) -> tuple[list[float] | None, dict[str, float] | None]:
         if len(self._calibration.points) < 3:
             return None, None
 
@@ -111,7 +111,7 @@ class CalibrationController:
         if params is None:
             return None, None
 
-        residuals = []
+        errors = []
         for point in self._calibration.points:
             lat = float(point.gps.latitude)
             lon = float(point.gps.longitude)
@@ -119,10 +119,15 @@ class CalibrationController:
             predicted_y = params[3] * lat + params[4] * lon + params[5]
             dx = predicted_x - point.pixel.x
             dy = predicted_y - point.pixel.y
-            residuals.append(math.hypot(dx, dy))
+            errors.append(math.hypot(dx, dy))
 
-        rms_error = math.sqrt(sum(value * value for value in residuals) / len(residuals)) if residuals else 0.0
-        return params, rms_error
+        rms_error = math.sqrt(sum(value * value for value in errors) / len(errors)) if errors else 0.0
+        max_error = max(errors) if errors else 0.0
+        return params, {
+            "rms": rms_error,
+            "max": max_error,
+            "errors": errors,
+        }
 
     def transform_gps_to_pixel(self, latitude: float, longitude: float) -> tuple[float, float] | None:
         params, _ = self.compute_affine_transform()
@@ -142,6 +147,7 @@ class CalibrationController:
             pivot_row = max(range(pivot, size), key=lambda row: abs(aug[row][pivot]))
             if abs(aug[pivot_row][pivot]) < 1e-12:
                 return None
+            
             if pivot_row != pivot:
                 aug[pivot], aug[pivot_row] = aug[pivot_row], aug[pivot]
 

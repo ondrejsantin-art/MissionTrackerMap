@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor
 
 from PySide6.QtWidgets import (
     QDockWidget,
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -41,6 +42,7 @@ class MainWindow(QMainWindow):
         self._pixel_status_label = QLabel("Pixel: —")
         self._zoom_status_label = QLabel("Zoom: 100%")
         self._rms_status_label = QLabel("RMS: —")
+        self._max_error_label = QLabel("Max: —")
 
         self._controller = CalibrationController()
 
@@ -60,6 +62,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self._pixel_status_label)
         self.statusBar().addPermanentWidget(self._zoom_status_label)
         self.statusBar().addPermanentWidget(self._rms_status_label)
+        self.statusBar().addPermanentWidget(self._max_error_label)
 
         self.imageView.imageLoaded.connect(
             self.onImageLoaded
@@ -333,8 +336,18 @@ class MainWindow(QMainWindow):
             self._controller.set_selected_point(None)
             return
 
-        for point in self._controller.points:
-            self._points_list.addItem(self._controller.point_display_text(point))
+        _, metrics = self._controller.compute_affine_transform()
+        errors = metrics.get("errors", []) if metrics else []
+
+        for index, point in enumerate(self._controller.points):
+            text = self._controller.point_display_text(point)
+            if index < len(errors):
+                error_value = errors[index]
+                text = f"{text}  [err: {error_value:.1f}px]"
+            item = QListWidgetItem(text)
+            if index < len(errors):
+                self._set_error_item_color(item, errors[index])
+            self._points_list.addItem(item)
 
         if self._controller.selected_point_index() is not None:
             selected_index = self._controller.selected_point_index()
@@ -360,11 +373,22 @@ class MainWindow(QMainWindow):
         self.imageView.set_point_markers(points, self._controller.selected_point_index())
 
     def _update_transform_status(self) -> None:
-        params, rms = self._controller.compute_affine_transform()
-        if params is None or rms is None:
+        params, metrics = self._controller.compute_affine_transform()
+        if params is None or metrics is None:
             self._rms_status_label.setText("RMS: —")
+            self._max_error_label.setText("Max: —")
             return
-        self._rms_status_label.setText(f"RMS: {rms:.2f}px")
+        self._rms_status_label.setText(f"RMS: {metrics['rms']:.2f}px")
+        self._max_error_label.setText(f"Max: {metrics['max']:.2f}px")
+
+    def _set_error_item_color(self, item: QListWidgetItem, error_value: float) -> None:
+        if error_value < 3.0:
+            color = QColor("#2e7d32")
+        elif error_value <= 10.0:
+            color = QColor("#b8860b")
+        else:
+            color = QColor("#c62828")
+        item.setForeground(color)
 
     def onOpenCalibrationTriggered(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
