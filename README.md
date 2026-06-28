@@ -1,2 +1,21 @@
 # MissionTrackerMap
-Android app to load the offline map store as PNG with calibrated points used to summer camp activities. Calibration of the map using simple json file
+
+MissionTracker is an open-source toolkit for GPS based outdoor games.
+
+## Components
+
+- Calibration Editor (Desktop)
+- Android Tracker
+- Mission Format
+
+## Current milestone
+
+Calibration Editor MVP
+
+### Features
+
+- Open PNG
+- Zoom
+- Pan
+- Create calibration points
+- Save JSON
