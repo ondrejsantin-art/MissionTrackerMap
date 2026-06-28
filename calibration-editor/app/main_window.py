@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         fileMenu = self.menuBar().addMenu("&File")
 
         openAction = QAction(
-            "Open...",
+            "Open Image...",
             self
         )
         openAction.triggered.connect(
@@ -344,7 +344,7 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save Calibration",
-            "",
+            "calibration.json",
             "JSON Files (*.json)",
         )
         if not filename:
