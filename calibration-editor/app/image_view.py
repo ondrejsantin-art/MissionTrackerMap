@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPointF, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -11,18 +11,33 @@ from PySide6.QtWidgets import (
 
 
 class ImageView(QGraphicsView):
+    """
+    Widget responsible only for displaying an image.
+
+    Responsibilities:
+      - display image
+      - zoom
+      - pan
+      - translate mouse position -> image pixel
+      - emit pixelSelected()
+
+    This widget intentionally knows nothing about GPS,
+    calibration points or JSON.
+    """
 
     imageLoaded = Signal(str, int, int)
+    pixelSelected = Signal(int, int)
     zoomChanged = Signal(float)
 
-    def __init__(self):
+    ZOOM_FACTOR = 1.15
 
+    def __init__(self):
         super().__init__()
 
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
 
-        self._pixmapItem = None
+        self._pixmap_item: QGraphicsPixmapItem | None = None
 
         self.setTransformationAnchor(
             QGraphicsView.AnchorUnderMouse
@@ -36,15 +51,16 @@ class ImageView(QGraphicsView):
             QGraphicsView.ScrollHandDrag
         )
 
-        self.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarAsNeeded
-        )
-
-        self.setVerticalScrollBarPolicy(
-            Qt.ScrollBarAsNeeded
-        )
-
         self.setBackgroundBrush(Qt.black)
+
+        self.setMouseTracking(True)
+
+    # --------------------------------------------------------
+
+    def hasImage(self) -> bool:
+        return self._pixmap_item is not None
+
+    # --------------------------------------------------------
 
     def openImage(self):
 
@@ -52,7 +68,7 @@ class ImageView(QGraphicsView):
             self,
             "Open map",
             "",
-            "Images (*.png *.jpg *.jpeg)"
+            "Images (*.png *.jpg *.jpeg)",
         )
 
         if not filename:
@@ -60,49 +76,108 @@ class ImageView(QGraphicsView):
 
         pixmap = QPixmap(filename)
 
+        if pixmap.isNull():
+            return
+
         self._scene.clear()
 
-        self._pixmapItem = QGraphicsPixmapItem(
+        self._pixmap_item = self._scene.addPixmap(
             pixmap
         )
 
-        self._scene.addItem(self._pixmapItem)
+        self.setSceneRect(
+            self._pixmap_item.boundingRect()
+        )
 
         self.fitToWindow()
 
         self.imageLoaded.emit(
             Path(filename).name,
             pixmap.width(),
-            pixmap.height()
+            pixmap.height(),
         )
+
+    # --------------------------------------------------------
 
     def fitToWindow(self):
 
-        if self._pixmapItem is None:
+        if not self.hasImage():
             return
 
         self.fitInView(
-            self._pixmapItem,
-            Qt.KeepAspectRatio
+            self._pixmap_item,
+            Qt.KeepAspectRatio,
         )
 
-        self.zoomChanged.emit(100)
+        self.zoomChanged.emit(
+            self.transform().m11() * 100.0
+        )
+
+    # --------------------------------------------------------
 
     def wheelEvent(self, event):
 
-        factor = 1.15
+        if not self.hasImage():
+            return
 
         if event.angleDelta().y() > 0:
 
-            self.scale(factor, factor)
+            factor = self.ZOOM_FACTOR
 
         else:
 
-            self.scale(
-                1 / factor,
-                1 / factor,
-            )
+            factor = 1.0 / self.ZOOM_FACTOR
 
-        zoom = self.transform().m11() * 100
+        self.scale(factor, factor)
 
-        self.zoomChanged.emit(zoom)
+        self.zoomChanged.emit(
+            self.transform().m11() * 100.0
+        )
+
+    # --------------------------------------------------------
+
+    def mousePressEvent(self, event):
+
+        super().mousePressEvent(event)
+
+        if (
+            event.button() != Qt.LeftButton
+            or not self.hasImage()
+        ):
+            return
+
+        scene_pos = self.mapToScene(
+            event.position().toPoint()
+        )
+
+        if not self._pixmap_item.contains(scene_pos):
+            return
+
+        pixel = scene_pos.toPoint()
+
+        self.pixelSelected.emit(
+            pixel.x(),
+            pixel.y(),
+        )
+
+    # --------------------------------------------------------
+
+    def mouseMoveEvent(self, event):
+
+        super().mouseMoveEvent(event)
+
+        if not self.hasImage():
+            return
+
+        scene_pos: QPointF = self.mapToScene(
+            event.position().toPoint()
+        )
+
+        if not self._pixmap_item.contains(scene_pos):
+            return
+
+        pixel = scene_pos.toPoint()
+
+        self.setToolTip(
+            f"Pixel: {pixel.x()}, {pixel.y()}"
+        )
