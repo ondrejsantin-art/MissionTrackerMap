@@ -22,7 +22,9 @@ class MainWindow(QMainWindow):
         self.resize(1400, 900)
 
         self.imageView = ImageView()
+        self._image_status_label = QLabel("Image: —")
         self._pixel_status_label = QLabel("Pixel: —")
+        self._zoom_status_label = QLabel("Zoom: 100%")
 
         self.setCentralWidget(
             self.imageView
@@ -30,10 +32,9 @@ class MainWindow(QMainWindow):
 
         self.createMenu()
 
+        self.statusBar().addPermanentWidget(self._image_status_label)
         self.statusBar().addPermanentWidget(self._pixel_status_label)
-        self.statusBar().showMessage(
-            "Ready"
-        )
+        self.statusBar().addPermanentWidget(self._zoom_status_label)
 
         self.imageView.imageLoaded.connect(
             self.onImageLoaded
@@ -47,29 +48,27 @@ class MainWindow(QMainWindow):
 
     def createMenu(self):
 
-        menu = self.menuBar().addMenu("&File")
+        fileMenu = self.menuBar().addMenu("&File")
 
         openAction = QAction(
-            "Open PNG...",
+            "Open...",
             self
         )
-
         openAction.triggered.connect(
             self.imageView.openImage
         )
+        fileMenu.addAction(openAction)
 
-        menu.addAction(openAction)
+        viewMenu = self.menuBar().addMenu("&View")
 
         fitAction = QAction(
             "Fit to Window",
             self
         )
-
         fitAction.triggered.connect(
             self.imageView.fitToWindow
         )
-
-        menu.addAction(fitAction)
+        viewMenu.addAction(fitAction)
 
     def onImageLoaded(
         self,
@@ -78,8 +77,8 @@ class MainWindow(QMainWindow):
         height,
     ):
 
-        self.statusBar().showMessage(
-            f"{filename}   {width} × {height}"
+        self._image_status_label.setText(
+            f"Image: {filename}"
         )
         self._pixel_status_label.setText("Pixel: —")
 
@@ -93,6 +92,9 @@ class MainWindow(QMainWindow):
         zoom,
     ):
 
+        self._zoom_status_label.setText(
+            f"Zoom: {zoom:.0f}%"
+        )
         self.setWindowTitle(
             f"MissionTracker Calibration Editor   ({zoom:.0f}%)"
         )
