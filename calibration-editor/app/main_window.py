@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gps_parser import GpsParseError, parse_gps
 from app.image_view import ImageView
 from app.models import CalibrationPointDraft
 
@@ -181,6 +182,16 @@ class MainWindow(QMainWindow):
             )
             return
 
+        try:
+            parsed_gps = parse_gps(gps_text)
+        except GpsParseError as exc:
+            QMessageBox.warning(
+                self,
+                "Invalid GPS",
+                str(exc),
+            )
+            return
+
         point_name = self._name_edit.text().strip()
         if not point_name:
             point_name = self._default_point_name()
@@ -191,6 +202,7 @@ class MainWindow(QMainWindow):
             pixel_y=int(self._pixel_y_edit.text()),
             gps_text=gps_text,
         )
+        point.gps_text = gps_text
         self._calibration_points.append(point)
         self._refresh_points_list()
         self._gps_edit.clear()
@@ -210,6 +222,16 @@ class MainWindow(QMainWindow):
                 self,
                 "GPS required",
                 "Please enter a GPS value before updating a calibration point.",
+            )
+            return
+
+        try:
+            parse_gps(gps_text)
+        except GpsParseError as exc:
+            QMessageBox.warning(
+                self,
+                "Invalid GPS",
+                str(exc),
             )
             return
 
