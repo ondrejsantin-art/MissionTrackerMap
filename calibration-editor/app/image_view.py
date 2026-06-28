@@ -56,6 +56,9 @@ class ImageView(QGraphicsView):
         if not filename:
             return
 
+        self.open_image_path(filename)
+
+    def open_image_path(self, filename: str) -> None:
         pixmap = QPixmap(filename)
         if pixmap.isNull():
             return

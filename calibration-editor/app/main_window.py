@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QAction
 
 from PySide6.QtWidgets import (
     QDockWidget,
+    QFileDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -14,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.calibration_controller import CalibrationController
+from app.calibration_io import load as load_calibration, save as save_calibration
 from app.gps_parser import GpsParseError, parse_gps
 from app.image_view import ImageView
 
@@ -30,6 +34,7 @@ class MainWindow(QMainWindow):
 
         self.resize(1400, 900)
 
+        self._calibration_path: str | None = None
         self.imageView = ImageView()
         self._image_status_label = QLabel("Image: —")
         self._pixel_status_label = QLabel("Pixel: —")
@@ -78,6 +83,18 @@ class MainWindow(QMainWindow):
             self.imageView.openImage
         )
         fileMenu.addAction(openAction)
+
+        openCalibrationAction = QAction("Open Calibration", self)
+        openCalibrationAction.triggered.connect(self.onOpenCalibrationTriggered)
+        fileMenu.addAction(openCalibrationAction)
+
+        saveAction = QAction("Save Calibration", self)
+        saveAction.triggered.connect(self.onSaveCalibrationTriggered)
+        fileMenu.addAction(saveAction)
+
+        saveAsAction = QAction("Save Calibration As", self)
+        saveAsAction.triggered.connect(self.onSaveCalibrationAsTriggered)
+        fileMenu.addAction(saveAsAction)
 
         viewMenu = self.menuBar().addMenu("&View")
 
@@ -305,6 +322,59 @@ class MainWindow(QMainWindow):
             for point in self._controller.points
         ]
         self.imageView.set_point_markers(points)
+
+    def onOpenCalibrationTriggered(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Calibration",
+            "",
+            "JSON Files (*.json)",
+        )
+        if not filename:
+            return
+        self._load_calibration(filename)
+
+    def onSaveCalibrationTriggered(self) -> None:
+        if self._calibration_path:
+            self._save_calibration(self._calibration_path)
+            return
+        self.onSaveCalibrationAsTriggered()
+
+    def onSaveCalibrationAsTriggered(self) -> None:
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Calibration",
+            "",
+            "JSON Files (*.json)",
+        )
+        if not filename:
+            return
+        self._save_calibration(filename)
+
+    def _save_calibration(self, filename: str) -> None:
+        save_calibration(self._controller.calibration, filename)
+        self._calibration_path = filename
+
+    def _load_calibration(self, filename: str) -> None:
+        try:
+            calibration = load_calibration(filename)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Load failed", str(exc))
+            return
+
+        self._controller = CalibrationController(calibration)
+        self._refresh_points_list()
+        self._refresh_point_markers()
+        self._clear_point_form()
+        self._calibration_path = filename
+        self._image_status_label.setText(f"Image: {calibration.image}")
+
+        if calibration.image:
+            image_path = Path(calibration.image)
+            if not image_path.is_absolute():
+                image_path = (Path(filename).parent / image_path).resolve()
+            if image_path.exists():
+                self.imageView.open_image_path(str(image_path))
 
     def _gps_text_for_point(self, point) -> str:
         latitude_suffix = "N" if point.gps.latitude >= 0 else "S"
