@@ -43,6 +43,8 @@ class MainWindow(QMainWindow):
         self._zoom_status_label = QLabel("Zoom: 100%")
         self._rms_status_label = QLabel("RMS: —")
         self._max_error_label = QLabel("Max: —")
+        self._quality_status_label = QLabel("Calibration: —")
+        self._quality_panel = self._create_quality_panel()
 
         self._controller = CalibrationController()
 
@@ -61,8 +63,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self._image_status_label)
         self.statusBar().addPermanentWidget(self._pixel_status_label)
         self.statusBar().addPermanentWidget(self._zoom_status_label)
-        self.statusBar().addPermanentWidget(self._rms_status_label)
-        self.statusBar().addPermanentWidget(self._max_error_label)
+        self.statusBar().addPermanentWidget(self._quality_status_label)
 
         self.imageView.imageLoaded.connect(
             self.onImageLoaded
@@ -170,6 +171,8 @@ class MainWindow(QMainWindow):
         self._points_list.itemDoubleClicked.connect(self.onPointDoubleClicked)
         self._refresh_points_list()
         layout.addWidget(self._points_list)
+
+        layout.addWidget(self._quality_panel)
 
         dock.setWidget(container)
         return dock
@@ -328,6 +331,26 @@ class MainWindow(QMainWindow):
         self._delete_point_button.setEnabled(True)
         self._refresh_point_markers()
 
+    def _create_quality_panel(self) -> QWidget:
+        panel = QWidget(self)
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(0, 8, 0, 0)
+        panel_layout.setSpacing(4)
+
+        panel_layout.addWidget(QLabel("Calibration Quality"))
+        self._quality_points_label = QLabel("Points: —")
+        self._quality_rms_label = QLabel("Pixel RMS: —")
+        self._quality_normalized_label = QLabel("Normalized RMS: —")
+        self._quality_max_label = QLabel("Maximum Error: —")
+        self._quality_status_label_detail = QLabel("Status: —")
+
+        panel_layout.addWidget(self._quality_points_label)
+        panel_layout.addWidget(self._quality_rms_label)
+        panel_layout.addWidget(self._quality_normalized_label)
+        panel_layout.addWidget(self._quality_max_label)
+        panel_layout.addWidget(self._quality_status_label_detail)
+        return panel
+
     def _refresh_points_list(self) -> None:
         selected_index = self._points_list.currentRow()
         self._points_list.clear()
@@ -373,13 +396,17 @@ class MainWindow(QMainWindow):
         self.imageView.set_point_markers(points, self._controller.selected_point_index())
 
     def _update_transform_status(self) -> None:
-        params, metrics = self._controller.compute_affine_transform()
-        if params is None or metrics is None:
-            self._rms_status_label.setText("RMS: —")
-            self._max_error_label.setText("Max: —")
-            return
-        self._rms_status_label.setText(f"RMS: {metrics['rms']:.2f}px")
-        self._max_error_label.setText(f"Max: {metrics['max']:.2f}px")
+        quality = self._controller.evaluate_quality()
+        self._quality_points_label.setText(f"Points: {quality.point_count}")
+        self._quality_rms_label.setText(f"Pixel RMS: {quality.rms_pixel_error:.2f}px")
+        self._quality_normalized_label.setText(
+            f"Normalized RMS: {quality.normalized_rms_percent:.2f}%"
+        )
+        self._quality_max_label.setText(f"Maximum Error: {quality.max_pixel_error:.2f}px")
+        self._quality_status_label_detail.setText(f"Status: {quality.status}")
+        self._quality_status_label.setText(
+            f"Calibration: {quality.status} ({quality.normalized_rms_percent:.2f}%)"
+        )
 
     def _set_error_item_color(self, item: QListWidgetItem, error_value: float) -> None:
         if error_value < 3.0:
