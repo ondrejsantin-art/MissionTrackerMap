@@ -13,9 +13,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.calibration_controller import CalibrationController
 from app.gps_parser import GpsParseError, parse_gps
 from app.image_view import ImageView
-from app.models import CalibrationPointDraft
 
 
 class MainWindow(QMainWindow):
@@ -35,8 +35,7 @@ class MainWindow(QMainWindow):
         self._pixel_status_label = QLabel("Pixel: —")
         self._zoom_status_label = QLabel("Zoom: 100%")
 
-        self._calibration_points: list[CalibrationPointDraft] = []
-        self._next_point_number = 1
+        self._controller = CalibrationController()
 
         self._point_dock = self._create_point_dock()
         self.addDockWidget(
@@ -162,6 +161,8 @@ class MainWindow(QMainWindow):
             f"Image: {filename}"
         )
         self._pixel_status_label.setText("Pixel: —")
+        self._controller.set_image_metadata(filename, width, height)
+        self._refresh_point_markers()
 
     def onPixelHovered(self, pixel: QPoint) -> None:
         self._pixel_status_label.setText(
@@ -183,7 +184,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            parsed_gps = parse_gps(gps_text)
+            parse_gps(gps_text)
         except GpsParseError as exc:
             QMessageBox.warning(
                 self,
@@ -196,15 +197,14 @@ class MainWindow(QMainWindow):
         if not point_name:
             point_name = self._default_point_name()
 
-        point = CalibrationPointDraft(
-            name=point_name,
+        self._controller.add_point(
             pixel_x=int(self._pixel_x_edit.text()),
             pixel_y=int(self._pixel_y_edit.text()),
             gps_text=gps_text,
+            name=point_name,
         )
-        point.gps_text = gps_text
-        self._calibration_points.append(point)
         self._refresh_points_list()
+        self._refresh_point_markers()
         self._gps_edit.clear()
         self._name_edit.clear()
         self._name_edit.setText(self._default_point_name())
@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
             return
 
         index = self._points_list.row(selected_items[0])
-        point = self._calibration_points[index]
+        point = self._controller.points[index]
         gps_text = self._gps_edit.text().strip()
         if not gps_text:
             QMessageBox.warning(
@@ -235,11 +235,16 @@ class MainWindow(QMainWindow):
             )
             return
 
-        point.name = self._name_edit.text().strip() or self._default_point_name()
-        point.gps_text = gps_text
-        point.pixel_x = int(self._pixel_x_edit.text())
-        point.pixel_y = int(self._pixel_y_edit.text())
+        point_name = self._name_edit.text().strip() or self._default_point_name()
+        self._controller.update_point(
+            index,
+            pixel_x=int(self._pixel_x_edit.text()),
+            pixel_y=int(self._pixel_y_edit.text()),
+            gps_text=gps_text,
+            name=point_name,
+        )
         self._refresh_points_list()
+        self._refresh_point_markers()
         self._points_list.setCurrentRow(index)
 
     def onDeletePointClicked(self) -> None:
@@ -248,8 +253,9 @@ class MainWindow(QMainWindow):
             return
 
         index = self._points_list.row(selected_items[0])
-        del self._calibration_points[index]
+        self._controller.delete_point(index)
         self._refresh_points_list()
+        self._refresh_point_markers()
         self._clear_point_form()
 
     def onPointSelectionChanged(self) -> None:
@@ -260,29 +266,27 @@ class MainWindow(QMainWindow):
             return
 
         index = self._points_list.row(selected_items[0])
-        if index < 0 or index >= len(self._calibration_points):
+        if index < 0 or index >= len(self._controller.points):
             self._update_point_button.setEnabled(False)
             self._delete_point_button.setEnabled(False)
             return
 
-        point = self._calibration_points[index]
+        point = self._controller.points[index]
         self._name_edit.setText(point.name)
-        self._gps_edit.setText(point.gps_text)
-        self._pixel_x_edit.setText(str(point.pixel_x))
-        self._pixel_y_edit.setText(str(point.pixel_y))
+        self._gps_edit.setText(self._gps_text_for_point(point))
+        self._pixel_x_edit.setText(str(point.pixel.x))
+        self._pixel_y_edit.setText(str(point.pixel.y))
         self._update_point_button.setEnabled(True)
         self._delete_point_button.setEnabled(True)
 
     def _refresh_points_list(self) -> None:
         self._points_list.clear()
-        if not self._calibration_points:
+        if not self._controller.points:
             self._points_list.addItem("(empty list)")
             return
 
-        for point in self._calibration_points:
-            self._points_list.addItem(
-                f"{point.name} @ ({point.pixel_x}, {point.pixel_y})"
-            )
+        for point in self._controller.points:
+            self._points_list.addItem(self._controller.point_display_text(point))
 
     def _clear_point_form(self) -> None:
         self._gps_edit.clear()
@@ -293,8 +297,23 @@ class MainWindow(QMainWindow):
         self._update_point_button.setEnabled(False)
         self._delete_point_button.setEnabled(False)
 
+    def _refresh_point_markers(self) -> None:
+        points = [
+            (point.name, point.pixel.x, point.pixel.y)
+            for point in self._controller.points
+        ]
+        self.imageView.set_point_markers(points)
+
+    def _gps_text_for_point(self, point) -> str:
+        latitude_suffix = "N" if point.gps.latitude >= 0 else "S"
+        longitude_suffix = "E" if point.gps.longitude >= 0 else "W"
+        return (
+            f"{abs(point.gps.latitude):.8f}{latitude_suffix} "
+            f"{abs(point.gps.longitude):.8f}{longitude_suffix}"
+        )
+
     def _default_point_name(self) -> str:
-        return f"point_name_{self._next_point_number:02d}"
+        return self._controller.next_default_name()
 
     def onZoomChanged(
         self,

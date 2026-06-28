@@ -1,11 +1,13 @@
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QPointF, Qt, Signal
-from PySide6.QtGui import QMouseEvent, QPixmap, QWheelEvent
+from PySide6.QtGui import QMouseEvent, QPen, QPixmap, QWheelEvent
 from PySide6.QtWidgets import (
     QFileDialog,
+    QGraphicsLineItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
+    QGraphicsSimpleTextItem,
     QGraphicsView,
 )
 
@@ -30,6 +32,8 @@ class ImageView(QGraphicsView):
         self._image_path: Path | None = None
         self._press_position: QPoint | None = None
         self._is_dragging = False
+        self._point_markers: list[QGraphicsLineItem] = []
+        self._point_labels: list[QGraphicsSimpleTextItem] = []
 
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
@@ -56,6 +60,8 @@ class ImageView(QGraphicsView):
             return
 
         self._scene.clear()
+        self._point_markers.clear()
+        self._point_labels.clear()
         self._pixmap_item = self._scene.addPixmap(pixmap)
         self._image_path = Path(filename)
 
@@ -135,6 +141,44 @@ class ImageView(QGraphicsView):
 
         self._press_position = None
         self._is_dragging = False
+
+    def set_point_markers(self, points: list[tuple[str, int, int]]) -> None:
+        if self._pixmap_item is None:
+            return
+
+        for marker in self._point_markers:
+            self._scene.removeItem(marker)
+        self._point_markers.clear()
+
+        for label in self._point_labels:
+            self._scene.removeItem(label)
+        self._point_labels.clear()
+
+        pen = QPen(Qt.GlobalColor.red)
+        pen.setWidth(2)
+
+        for name, pixel_x, pixel_y in points:
+            cross_size = 6
+            marker_a = self._scene.addLine(
+                pixel_x - cross_size,
+                pixel_y - cross_size,
+                pixel_x + cross_size,
+                pixel_y + cross_size,
+                pen,
+            )
+            marker_b = self._scene.addLine(
+                pixel_x - cross_size,
+                pixel_y + cross_size,
+                pixel_x + cross_size,
+                pixel_y - cross_size,
+                pen,
+            )
+            self._point_markers.extend([marker_a, marker_b])
+
+            label = self._scene.addSimpleText(name)
+            label.setBrush(Qt.GlobalColor.red)
+            label.setPos(pixel_x + 8, pixel_y - 8)
+            self._point_labels.append(label)
 
     def _pixel_at(self, viewport_position: QPoint) -> QPoint | None:
         if not self.hasImage() or self._pixmap_item is None:

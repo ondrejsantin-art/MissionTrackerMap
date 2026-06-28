@@ -1,0 +1,74 @@
+from app.gps_parser import GpsParseError, parse_gps
+from app.models import Calibration, CalibrationPoint, PixelPoint
+
+
+class CalibrationController:
+    """Owns the in-memory calibration session and point management."""
+
+    def __init__(self, calibration: Calibration | None = None) -> None:
+        self._calibration = calibration or Calibration()
+
+    @property
+    def calibration(self) -> Calibration:
+        return self._calibration
+
+    @property
+    def points(self) -> list[CalibrationPoint]:
+        return self._calibration.points
+
+    def set_image_metadata(self, filename: str, width: int, height: int) -> None:
+        self._calibration.image = filename
+        self._calibration.imageWidth = width
+        self._calibration.imageHeight = height
+
+    def next_default_name(self) -> str:
+        existing_names = {point.name for point in self._calibration.points if point.name}
+        index = 1
+        while f"P{index:03d}" in existing_names:
+            index += 1
+        return f"P{index:03d}"
+
+    def add_point(
+        self,
+        *,
+        pixel_x: int,
+        pixel_y: int,
+        gps_text: str,
+        name: str = "",
+    ) -> CalibrationPoint:
+        parsed_gps = parse_gps(gps_text)
+        point_name = name.strip() or self.next_default_name()
+        point = CalibrationPoint(
+            name=point_name,
+            pixel=PixelPoint(x=pixel_x, y=pixel_y),
+            gps=parsed_gps,
+        )
+        self._calibration.points.append(point)
+        return point
+
+    def update_point(
+        self,
+        index: int,
+        *,
+        pixel_x: int,
+        pixel_y: int,
+        gps_text: str,
+        name: str = "",
+    ) -> CalibrationPoint:
+        if not 0 <= index < len(self._calibration.points):
+            raise IndexError("Calibration point index out of range")
+
+        parsed_gps = parse_gps(gps_text)
+        point = self._calibration.points[index]
+        point.name = name.strip() or self.next_default_name()
+        point.pixel = PixelPoint(x=pixel_x, y=pixel_y)
+        point.gps = parsed_gps
+        return point
+
+    def delete_point(self, index: int) -> None:
+        if not 0 <= index < len(self._calibration.points):
+            raise IndexError("Calibration point index out of range")
+        del self._calibration.points[index]
+
+    def point_display_text(self, point: CalibrationPoint) -> str:
+        return f"{point.name}   ({point.pixel.x},{point.pixel.y})"
