@@ -59,8 +59,8 @@ class ImageView(QGraphicsView):
         self._pixmap_item = self._scene.addPixmap(pixmap)
         self._image_path = Path(filename)
 
+        self.resetTransform()
         self.setSceneRect(self._pixmap_item.boundingRect())
-        self.fitToWindow()
 
         self.imageLoaded.emit(
             self._image_path.name,
