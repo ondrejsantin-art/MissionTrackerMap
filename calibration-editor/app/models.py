@@ -19,6 +19,13 @@ class CalibrationPoint(BaseModel):
     gps: GpsPoint
 
 
+class CalibrationPointDraft(BaseModel):
+    name: str = ""
+    pixel_x: int = 0
+    pixel_y: int = 0
+    gps_text: str = ""
+
+
 class Calibration(BaseModel):
 
     version: int = 1
