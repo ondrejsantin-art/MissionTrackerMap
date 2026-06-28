@@ -162,6 +162,7 @@ class MainWindow(QMainWindow):
         self._points_list = QListWidget()
         self._points_list.setMinimumHeight(140)
         self._points_list.itemSelectionChanged.connect(self.onPointSelectionChanged)
+        self._points_list.itemDoubleClicked.connect(self.onPointDoubleClicked)
         self._refresh_points_list()
         layout.addWidget(self._points_list)
 
@@ -278,6 +279,15 @@ class MainWindow(QMainWindow):
             return
 
         index = self._points_list.row(selected_items[0])
+        reply = QMessageBox.question(
+            self,
+            "Delete point",
+            f"Delete calibration point '{self._controller.points[index].name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
         self._controller.delete_point(index)
         self._refresh_points_list()
         self._refresh_point_markers()
@@ -289,6 +299,7 @@ class MainWindow(QMainWindow):
             self._controller.set_selected_point(None)
             self._update_point_button.setEnabled(False)
             self._delete_point_button.setEnabled(False)
+            self._refresh_point_markers()
             return
 
         index = self._points_list.row(selected_items[0])
@@ -296,6 +307,7 @@ class MainWindow(QMainWindow):
             self._controller.set_selected_point(None)
             self._update_point_button.setEnabled(False)
             self._delete_point_button.setEnabled(False)
+            self._refresh_point_markers()
             return
 
         self._controller.set_selected_point(index)
@@ -306,6 +318,7 @@ class MainWindow(QMainWindow):
         self._pixel_y_edit.setText(str(point.pixel.y))
         self._update_point_button.setEnabled(True)
         self._delete_point_button.setEnabled(True)
+        self._refresh_point_markers()
 
     def _refresh_points_list(self) -> None:
         selected_index = self._points_list.currentRow()
@@ -332,13 +345,14 @@ class MainWindow(QMainWindow):
         self._pixel_y_edit.setText("0")
         self._update_point_button.setEnabled(False)
         self._delete_point_button.setEnabled(False)
+        self._refresh_point_markers()
 
     def _refresh_point_markers(self) -> None:
         points = [
             (point.name, point.pixel.x, point.pixel.y)
             for point in self._controller.points
         ]
-        self.imageView.set_point_markers(points)
+        self.imageView.set_point_markers(points, self._controller.selected_point_index())
 
     def onOpenCalibrationTriggered(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
@@ -419,6 +433,14 @@ class MainWindow(QMainWindow):
         else:
             self._loading_calibration = False
 
+    def onPointDoubleClicked(self, item) -> None:
+        row = self._points_list.row(item)
+        if row < 0 or row >= len(self._controller.points):
+            return
+        self._points_list.setCurrentRow(row)
+        self._name_edit.setFocus()
+        self._name_edit.selectAll()
+
     def _gps_text_for_point(self, point) -> str:
         latitude_suffix = "N" if point.gps.latitude >= 0 else "S"
         longitude_suffix = "E" if point.gps.longitude >= 0 else "W"
@@ -429,6 +451,13 @@ class MainWindow(QMainWindow):
 
     def _default_point_name(self) -> str:
         return self._controller.next_default_name()
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key.Key_Delete and self._points_list.selectedItems():
+            self.onDeletePointClicked()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def onZoomChanged(
         self,

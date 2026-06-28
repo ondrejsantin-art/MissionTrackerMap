@@ -147,7 +147,11 @@ class ImageView(QGraphicsView):
         self._press_position = None
         self._is_dragging = False
 
-    def set_point_markers(self, points: list[tuple[str, int, int]]) -> None:
+    def set_point_markers(
+        self,
+        points: list[tuple[str, int, int]],
+        selected_index: int | None = None,
+    ) -> None:
         if self._pixmap_item is None:
             return
 
@@ -161,11 +165,12 @@ class ImageView(QGraphicsView):
             self._scene.removeItem(label)
         self._point_labels.clear()
 
-        pen = QPen(Qt.GlobalColor.red)
-        pen.setWidth(2)
+        for index, (name, pixel_x, pixel_y) in enumerate(points):
+            is_selected = selected_index is not None and index == selected_index
+            pen = QPen(Qt.GlobalColor.green if is_selected else Qt.GlobalColor.red)
+            pen.setWidth(3 if is_selected else 2)
+            cross_size = 8 if is_selected else 6
 
-        for name, pixel_x, pixel_y in points:
-            cross_size = 6
             marker_a = self._scene.addLine(
                 pixel_x - cross_size,
                 pixel_y - cross_size,
@@ -183,7 +188,7 @@ class ImageView(QGraphicsView):
             self._point_markers.extend([marker_a, marker_b])
 
             label = self._scene.addSimpleText(name)
-            label.setBrush(Qt.GlobalColor.red)
+            label.setBrush(Qt.GlobalColor.green if is_selected else Qt.GlobalColor.red)
             label.setPos(pixel_x + 8, pixel_y - 8)
             self._point_labels.append(label)
 
