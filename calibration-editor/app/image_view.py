@@ -34,6 +34,7 @@ class ImageView(QGraphicsView):
         self._is_dragging = False
         self._point_markers: list[QGraphicsLineItem] = []
         self._point_labels: list[QGraphicsSimpleTextItem] = []
+        self._pending_markers: list[QGraphicsLineItem] = []
 
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
@@ -62,6 +63,7 @@ class ImageView(QGraphicsView):
         self._scene.clear()
         self._point_markers.clear()
         self._point_labels.clear()
+        self._pending_markers.clear()
         self._pixmap_item = self._scene.addPixmap(pixmap)
         self._image_path = Path(filename)
 
@@ -146,6 +148,8 @@ class ImageView(QGraphicsView):
         if self._pixmap_item is None:
             return
 
+        self.clear_pending_marker()
+
         for marker in self._point_markers:
             self._scene.removeItem(marker)
         self._point_markers.clear()
@@ -179,6 +183,36 @@ class ImageView(QGraphicsView):
             label.setBrush(Qt.GlobalColor.red)
             label.setPos(pixel_x + 8, pixel_y - 8)
             self._point_labels.append(label)
+
+    def set_pending_marker(self, pixel: QPoint | None) -> None:
+        self.clear_pending_marker()
+        if pixel is None or self._pixmap_item is None:
+            return
+
+        pen = QPen(Qt.GlobalColor.green)
+        pen.setWidth(2)
+        cross_size = 6
+
+        marker_a = self._scene.addLine(
+            pixel.x() - cross_size,
+            pixel.y() - cross_size,
+            pixel.x() + cross_size,
+            pixel.y() + cross_size,
+            pen,
+        )
+        marker_b = self._scene.addLine(
+            pixel.x() - cross_size,
+            pixel.y() + cross_size,
+            pixel.x() + cross_size,
+            pixel.y() - cross_size,
+            pen,
+        )
+        self._pending_markers.extend([marker_a, marker_b])
+
+    def clear_pending_marker(self) -> None:
+        for marker in self._pending_markers:
+            self._scene.removeItem(marker)
+        self._pending_markers.clear()
 
     def _pixel_at(self, viewport_position: QPoint) -> QPoint | None:
         if not self.hasImage() or self._pixmap_item is None:

@@ -172,6 +172,7 @@ class MainWindow(QMainWindow):
     def onPixelClicked(self, pixel: QPoint) -> None:
         self._pixel_x_edit.setText(str(pixel.x()))
         self._pixel_y_edit.setText(str(pixel.y()))
+        self.imageView.set_pending_marker(pixel)
 
     def onAddPointClicked(self) -> None:
         gps_text = self._gps_edit.text().strip()
@@ -203,6 +204,7 @@ class MainWindow(QMainWindow):
             gps_text=gps_text,
             name=point_name,
         )
+        self.imageView.clear_pending_marker()
         self._refresh_points_list()
         self._refresh_point_markers()
         self._gps_edit.clear()
