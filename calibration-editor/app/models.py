@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PixelPoint(BaseModel):
@@ -13,13 +13,20 @@ class GpsPoint(BaseModel):
 
 class CalibrationPoint(BaseModel):
     name: str
+
     pixel: PixelPoint
+
     gps: GpsPoint
 
 
 class Calibration(BaseModel):
+
     version: int = 1
-    image: str
-    imageWidth: int
-    imageHeight: int
-    points: list[CalibrationPoint] = []
+
+    image: str = ""
+
+    imageWidth: int = 0
+
+    imageHeight: int = 0
+
+    points: list[CalibrationPoint] = Field(default_factory=list)

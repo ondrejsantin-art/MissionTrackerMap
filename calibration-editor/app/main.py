@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from main_window import MainWindow
+from app.main_window import MainWindow
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
 
     window = MainWindow()
 
-    window.resize(1400, 900)
+    window.resize(1200, 800)
 
     window.show()
 

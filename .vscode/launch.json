@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install Requirements",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/bin/pip install -r calibration-editor/requirements.txt",
+            "problemMatcher": []
+        }
+    ]
+}

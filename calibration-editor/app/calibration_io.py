@@ -1,7 +1,6 @@
-import json
 from pathlib import Path
 
-from models import Calibration
+from app.models import Calibration
 
 
 def save(calibration: Calibration, filename: str):
@@ -14,6 +13,8 @@ def save(calibration: Calibration, filename: str):
 
 def load(filename: str) -> Calibration:
 
-    text = Path(filename).read_text(encoding="utf-8")
+    text = Path(filename).read_text(
+        encoding="utf-8"
+    )
 
     return Calibration.model_validate_json(text)
