@@ -21,6 +21,12 @@ class CalibrationController:
         self._calibration.imageWidth = width
         self._calibration.imageHeight = height
 
+    def set_selected_point(self, index: int | None) -> None:
+        self._calibration.selectedPoint = index
+
+    def selected_point_index(self) -> int | None:
+        return self._calibration.selectedPoint
+
     def next_default_name(self) -> str:
         existing_names = {point.name for point in self._calibration.points if point.name}
         index = 1

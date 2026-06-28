@@ -15,6 +15,7 @@ def test_main_window_saves_calibration_file(tmp_path):
         gps_text="50.8656661N 15.1380419E",
         name="Archive",
     )
+    window._points_list.setCurrentRow(0)
 
     output_path = tmp_path / "calibration.json"
     window._save_calibration(str(output_path))

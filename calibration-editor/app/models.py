@@ -36,4 +36,6 @@ class Calibration(BaseModel):
 
     imageHeight: int = 0
 
+    selectedPoint: int | None = None
+
     points: list[CalibrationPoint] = Field(default_factory=list)

@@ -35,6 +35,7 @@ class MainWindow(QMainWindow):
         self.resize(1400, 900)
 
         self._calibration_path: str | None = None
+        self._loading_calibration = False
         self.imageView = ImageView()
         self._image_status_label = QLabel("Image: —")
         self._pixel_status_label = QLabel("Pixel: —")
@@ -174,12 +175,17 @@ class MainWindow(QMainWindow):
         height,
     ):
 
+        image_name = filename
+        if self._loading_calibration and self._controller.calibration.image:
+            image_name = self._controller.calibration.image
+
         self._image_status_label.setText(
-            f"Image: {filename}"
+            f"Image: {image_name}"
         )
         self._pixel_status_label.setText("Pixel: —")
-        self._controller.set_image_metadata(filename, width, height)
+        self._controller.set_image_metadata(image_name, width, height)
         self._refresh_point_markers()
+        self._loading_calibration = False
 
     def onPixelHovered(self, pixel: QPoint) -> None:
         self._pixel_status_label.setText(
@@ -280,16 +286,19 @@ class MainWindow(QMainWindow):
     def onPointSelectionChanged(self) -> None:
         selected_items = self._points_list.selectedItems()
         if not selected_items:
+            self._controller.set_selected_point(None)
             self._update_point_button.setEnabled(False)
             self._delete_point_button.setEnabled(False)
             return
 
         index = self._points_list.row(selected_items[0])
         if index < 0 or index >= len(self._controller.points):
+            self._controller.set_selected_point(None)
             self._update_point_button.setEnabled(False)
             self._delete_point_button.setEnabled(False)
             return
 
+        self._controller.set_selected_point(index)
         point = self._controller.points[index]
         self._name_edit.setText(point.name)
         self._gps_edit.setText(self._gps_text_for_point(point))
@@ -299,15 +308,23 @@ class MainWindow(QMainWindow):
         self._delete_point_button.setEnabled(True)
 
     def _refresh_points_list(self) -> None:
+        selected_index = self._points_list.currentRow()
         self._points_list.clear()
         if not self._controller.points:
             self._points_list.addItem("(empty list)")
+            self._controller.set_selected_point(None)
             return
 
         for point in self._controller.points:
             self._points_list.addItem(self._controller.point_display_text(point))
 
+        if self._controller.selected_point_index() is not None:
+            selected_index = self._controller.selected_point_index()
+        if 0 <= selected_index < len(self._controller.points):
+            self._points_list.setCurrentRow(selected_index)
+
     def _clear_point_form(self) -> None:
+        self._controller.set_selected_point(None)
         self._gps_edit.clear()
         self._name_edit.clear()
         self._name_edit.setText(self._default_point_name())
@@ -352,6 +369,12 @@ class MainWindow(QMainWindow):
         self._save_calibration(filename)
 
     def _save_calibration(self, filename: str) -> None:
+        selected_index = self._points_list.currentRow()
+        if 0 <= selected_index < len(self._controller.points):
+            self._controller.set_selected_point(selected_index)
+        else:
+            self._controller.set_selected_point(None)
+
         save_calibration(self._controller.calibration, filename)
         self._calibration_path = filename
 
@@ -365,16 +388,36 @@ class MainWindow(QMainWindow):
         self._controller = CalibrationController(calibration)
         self._refresh_points_list()
         self._refresh_point_markers()
-        self._clear_point_form()
         self._calibration_path = filename
         self._image_status_label.setText(f"Image: {calibration.image}")
+
+        if calibration.selectedPoint is not None and 0 <= calibration.selectedPoint < len(self._controller.points):
+            self._points_list.setCurrentRow(calibration.selectedPoint)
+            point = self._controller.points[calibration.selectedPoint]
+            self._name_edit.setText(point.name)
+            self._gps_edit.setText(self._gps_text_for_point(point))
+            self._pixel_x_edit.setText(str(point.pixel.x))
+            self._pixel_y_edit.setText(str(point.pixel.y))
+            self._update_point_button.setEnabled(True)
+            self._delete_point_button.setEnabled(True)
+        else:
+            self._clear_point_form()
 
         if calibration.image:
             image_path = Path(calibration.image)
             if not image_path.is_absolute():
                 image_path = (Path(filename).parent / image_path).resolve()
             if image_path.exists():
+                self._loading_calibration = True
                 self.imageView.open_image_path(str(image_path))
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Image not found",
+                    f"The referenced image '{calibration.image}' could not be found.",
+                )
+        else:
+            self._loading_calibration = False
 
     def _gps_text_for_point(self, point) -> str:
         latitude_suffix = "N" if point.gps.latitude >= 0 else "S"
