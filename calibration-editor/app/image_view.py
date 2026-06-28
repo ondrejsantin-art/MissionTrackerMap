@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QPixmap, QWheelEvent
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -144,4 +144,10 @@ class ImageView(QGraphicsView):
         if not self._pixmap_item.contains(scene_position):
             return None
 
-        return scene_position.toPoint()
+        return self._to_image_pixel(scene_position)
+
+    def _to_image_pixel(self, scene_position: QPointF) -> QPoint:
+        return QPoint(
+            int(round(scene_position.x())),
+            int(round(scene_position.y())),
+        )
