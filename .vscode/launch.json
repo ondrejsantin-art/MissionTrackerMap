@@ -1,11 +1,14 @@
 {
-    "version": "2.0.0",
-    "tasks": [
+    "version": "0.2.0",
+    "configurations": [
         {
-            "label": "Install Requirements",
-            "type": "shell",
-            "command": "${workspaceFolder}/.venv/bin/pip install -r calibration-editor/requirements.txt",
-            "problemMatcher": []
+            "name": "MissionTracker Calibration Editor",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "app.main",
+            "cwd": "${workspaceFolder}/calibration-editor",
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
