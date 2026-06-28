@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         self._image_status_label = QLabel("Image: —")
         self._pixel_status_label = QLabel("Pixel: —")
         self._zoom_status_label = QLabel("Zoom: 100%")
+        self._rms_status_label = QLabel("RMS: —")
 
         self._controller = CalibrationController()
 
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self._image_status_label)
         self.statusBar().addPermanentWidget(self._pixel_status_label)
         self.statusBar().addPermanentWidget(self._zoom_status_label)
+        self.statusBar().addPermanentWidget(self._rms_status_label)
 
         self.imageView.imageLoaded.connect(
             self.onImageLoaded
@@ -231,6 +233,7 @@ class MainWindow(QMainWindow):
         self.imageView.clear_pending_marker()
         self._refresh_points_list()
         self._refresh_point_markers()
+        self._update_transform_status()
         self._gps_edit.clear()
         self._name_edit.clear()
         self._name_edit.setText(self._default_point_name())
@@ -271,6 +274,7 @@ class MainWindow(QMainWindow):
         )
         self._refresh_points_list()
         self._refresh_point_markers()
+        self._update_transform_status()
         self._points_list.setCurrentRow(index)
 
     def onDeletePointClicked(self) -> None:
@@ -291,6 +295,7 @@ class MainWindow(QMainWindow):
         self._controller.delete_point(index)
         self._refresh_points_list()
         self._refresh_point_markers()
+        self._update_transform_status()
         self._clear_point_form()
 
     def onPointSelectionChanged(self) -> None:
@@ -354,6 +359,13 @@ class MainWindow(QMainWindow):
         ]
         self.imageView.set_point_markers(points, self._controller.selected_point_index())
 
+    def _update_transform_status(self) -> None:
+        params, rms = self._controller.compute_affine_transform()
+        if params is None or rms is None:
+            self._rms_status_label.setText("RMS: —")
+            return
+        self._rms_status_label.setText(f"RMS: {rms:.2f}px")
+
     def onOpenCalibrationTriggered(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
             self,
@@ -402,6 +414,7 @@ class MainWindow(QMainWindow):
         self._controller = CalibrationController(calibration)
         self._refresh_points_list()
         self._refresh_point_markers()
+        self._update_transform_status()
         self._calibration_path = filename
         self._image_status_label.setText(f"Image: {calibration.image}")
 

@@ -1,3 +1,5 @@
+import math
+
 from app.gps_parser import GpsParseError, parse_gps
 from app.models import Calibration, CalibrationPoint, PixelPoint
 
@@ -78,3 +80,82 @@ class CalibrationController:
 
     def point_display_text(self, point: CalibrationPoint) -> str:
         return f"{point.name}   ({point.pixel.x},{point.pixel.y})"
+
+    def compute_affine_transform(self) -> tuple[list[float] | None, float | None]:
+        if len(self._calibration.points) < 3:
+            return None, None
+
+        rows: list[list[float]] = []
+        targets: list[float] = []
+
+        for point in self._calibration.points:
+            lat = float(point.gps.latitude)
+            lon = float(point.gps.longitude)
+            pixel_x = float(point.pixel.x)
+            pixel_y = float(point.pixel.y)
+
+            rows.append([lat, lon, 1.0, 0.0, 0.0, 0.0])
+            rows.append([0.0, 0.0, 0.0, lat, lon, 1.0])
+            targets.extend([pixel_x, pixel_y])
+
+        ata = [[0.0] * 6 for _ in range(6)]
+        atb = [0.0] * 6
+
+        for row_index, row in enumerate(rows):
+            for col_index, value in enumerate(row):
+                atb[col_index] += value * targets[row_index]
+                for col_index_2 in range(6):
+                    ata[col_index][col_index_2] += value * row[col_index_2]
+
+        params = self._solve_linear_system(ata, atb)
+        if params is None:
+            return None, None
+
+        residuals = []
+        for point in self._calibration.points:
+            lat = float(point.gps.latitude)
+            lon = float(point.gps.longitude)
+            predicted_x = params[0] * lat + params[1] * lon + params[2]
+            predicted_y = params[3] * lat + params[4] * lon + params[5]
+            dx = predicted_x - point.pixel.x
+            dy = predicted_y - point.pixel.y
+            residuals.append(math.hypot(dx, dy))
+
+        rms_error = math.sqrt(sum(value * value for value in residuals) / len(residuals)) if residuals else 0.0
+        return params, rms_error
+
+    def transform_gps_to_pixel(self, latitude: float, longitude: float) -> tuple[float, float] | None:
+        params, _ = self.compute_affine_transform()
+        if params is None:
+            return None
+
+        return (
+            params[0] * latitude + params[1] * longitude + params[2],
+            params[3] * latitude + params[4] * longitude + params[5],
+        )
+
+    def _solve_linear_system(self, matrix: list[list[float]], vector: list[float]) -> list[float] | None:
+        size = len(matrix)
+        aug = [row[:] + [vector[index]] for index, row in enumerate(matrix)]
+
+        for pivot in range(size):
+            pivot_row = max(range(pivot, size), key=lambda row: abs(aug[row][pivot]))
+            if abs(aug[pivot_row][pivot]) < 1e-12:
+                return None
+            if pivot_row != pivot:
+                aug[pivot], aug[pivot_row] = aug[pivot_row], aug[pivot]
+
+            pivot_value = aug[pivot][pivot]
+            for col in range(pivot, size + 1):
+                aug[pivot][col] /= pivot_value
+
+            for row in range(size):
+                if row == pivot:
+                    continue
+                factor = aug[row][pivot]
+                if factor == 0.0:
+                    continue
+                for col in range(pivot, size + 1):
+                    aug[row][col] -= factor * aug[pivot][col]
+
+        return [aug[index][size] for index in range(size)]
