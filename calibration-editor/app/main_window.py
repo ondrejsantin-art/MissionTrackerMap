@@ -237,6 +237,8 @@ class MainWindow(QMainWindow):
 
         point.name = self._name_edit.text().strip() or self._default_point_name()
         point.gps_text = gps_text
+        point.pixel_x = int(self._pixel_x_edit.text())
+        point.pixel_y = int(self._pixel_y_edit.text())
         self._refresh_points_list()
         self._points_list.setCurrentRow(index)
 
