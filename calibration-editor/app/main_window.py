@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtGui import QAction, QColor, QBrush
 
 from PySide6.QtWidgets import (
     QDockWidget,
@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
             color = QColor("#b8860b")
         else:
             color = QColor("#c62828")
-        item.setForeground(color)
+        item.setForeground(QBrush(color))
 
     def onOpenCalibrationTriggered(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(

@@ -86,12 +86,11 @@ class CalibrationController:
         return self._quality_service.evaluate(self._calibration)
 
     def compute_affine_transform(self) -> tuple[list[float] | None, dict[str, float] | None]:
-        quality = self.evaluate_quality()
         if len(self._calibration.points) < 3:
             return None, None
-        params = [0.0] * 6
-        if quality.per_point_errors:
-            params = [0.0] * 6
+
+        params = self._quality_service._fit_affine_transform(self._calibration.points)
+        quality = self.evaluate_quality()
         return params, {
             "rms": quality.rms_pixel_error,
             "max": quality.max_pixel_error,
@@ -99,13 +98,11 @@ class CalibrationController:
         }
 
     def transform_gps_to_pixel(self, latitude: float, longitude: float) -> tuple[float, float] | None:
-        if len(self._calibration.points) < 3:
-            return None
-        params = self._quality_service._fit_affine_transform(self._calibration.points)
-        if not params:
+        transform, _ = self.compute_affine_transform()
+        if transform is None:
             return None
 
         return (
-            params[0] * latitude + params[1] * longitude + params[2],
-            params[3] * latitude + params[4] * longitude + params[5],
+            transform[0] * latitude + transform[1] * longitude + transform[2],
+            transform[3] * latitude + transform[4] * longitude + transform[5],
         )
