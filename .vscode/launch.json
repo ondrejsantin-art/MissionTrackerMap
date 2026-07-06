@@ -2,13 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "MissionTracker Calibration Editor",
-            "type": "debugpy",
+            "name": "Launch Android Emulator",
+            "type": "java",
             "request": "launch",
-            "module": "app.main",
-            "cwd": "${workspaceFolder}/calibration-editor",
-            "console": "integratedTerminal",
-            "justMyCode": true
+            "mainClass": "com.example.missiontrackermap.MainActivityKt",
+            "projectName": "MissionTrackerMap.android.app",
+            "env": {
+                "ANDROID_HOME": "/usr/lib/android-sdk"
+            },
+            "args": "-s MissionTrackerAVD",
+            "vmArgs": "-Dcom.android.sdkmanager.toolsdir=/usr/lib/android-sdk/cmdline-tools/17.0/bin"
         }
     ]
 }

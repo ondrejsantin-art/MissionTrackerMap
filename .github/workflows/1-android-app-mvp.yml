@@ -1,0 +1,27 @@
+name: Android MVP CI
+
+# Run on pushes to the new branch (and pull‑requests targeting it)
+on:
+  push:
+    branches: [ 1-android-app-mvp ]
+  pull_request:
+    branches: [ 1-android-app-mvp ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug

@@ -1,2 +1,15 @@
 .venv/
 .vscode/settings.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Android
+**/build/
+.gradle/
+android/local.properties
+android/.gradle/
+
+# Sample Data / Large assets
+sample-data/
