@@ -25,3 +25,18 @@ jobs:
 
       - name: Build Debug APK
         run: cd android && ./gradlew assembleDebug
+
+- name: Set up Python
+  uses: actions/setup-python@v4
+  with:
+    python-version: '3.10'
+
+- name: Install calibration dependencies
+  run: |
+    python -m pip install --upgrade pip
+    pip install -r calibration-editor/requirements.txt
+
+- name: Run calibration application
+  run: |
+    cd calibration-editor
+    ./run.sh
