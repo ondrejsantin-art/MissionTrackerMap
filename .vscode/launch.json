@@ -8,10 +8,10 @@
             "mainClass": "com.example.missiontrackermap.MainActivityKt",
             "projectName": "MissionTrackerMap.android.app",
             "env": {
-                "ANDROID_HOME": "/usr/lib/android-sdk"
+                "ANDROID_HOME": "/home/oncra/Android/Sdk"
             },
             "args": "-s MissionTrackerAVD",
-            "vmArgs": "-Dcom.android.sdkmanager.toolsdir=/usr/lib/android-sdk/cmdline-tools/17.0/bin",
+            "vmArgs": "-Dcom.android.sdkmanager.toolsdir=/home/oncra/Android/Sdk/cmdline-tools/17.0/bin",
             "preLaunchTask": "Build Android App"
         }
     ]
