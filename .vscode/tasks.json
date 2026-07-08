@@ -19,7 +19,7 @@
         {
             "label": "Run Android App",
             "type": "shell",
-            "command": "android run",
+            "command": "android run --apks=android/app/build/outputs/apk/debug/MissionTrackerMap-debug.apk",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
