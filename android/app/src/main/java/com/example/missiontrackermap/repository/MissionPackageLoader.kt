@@ -13,10 +13,10 @@ private const val MISSIONS_ROOT = "missions"
  * Loads a Mission Package from the app's assets folder.
  *
  * Expected asset structure:
- *   assets/missions/<missionId>/calibration.json
+ *   assets/missions/<missionId>/<missionId>.json
  *   assets/missions/<missionId>/<image-file-name>
  *
- * The image filename is read from calibration.json's "image" field.
+ * The image filename is read from <missionId>.json's "image" field.
  *
  * Future enhancement (Task G): also support loading from external storage
  * (/sdcard/MissionTrackerMap/) so new missions can be added without reinstalling.
@@ -65,7 +65,7 @@ class MissionPackageLoader(private val context: Context) {
     }
 
     private fun loadCalibration(missionId: String): CalibrationData {
-        val path = "$MISSIONS_ROOT/$missionId/calibration.json"
+        val path = "$MISSIONS_ROOT/$missionId/$missionId.json"
         val rawJson = context.assets.open(path).bufferedReader().use { it.readText() }
         return json.decodeFromString<CalibrationData>(rawJson)
     }

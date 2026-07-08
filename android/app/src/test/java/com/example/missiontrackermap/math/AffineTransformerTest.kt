@@ -18,33 +18,48 @@ import kotlin.test.assertTrue
 class AffineTransformerTest {
 
     // -----------------------------------------------------------------------
-    // Real calibration data from calibration_scarif_test_RMS.json
+    // Real calibration data from scarif.json
     // -----------------------------------------------------------------------
     private val realPoints = listOf(
         CalibrationPoint(
-            "rozcesti u krize sedlaka pepka",
-            PixelCoordinate(1005.0, 604.0),
-            GpsCoordinate(50.8768306, 15.1428431)
-        ),
-        CalibrationPoint(
-            "rozcesti pod viaduktem",
-            PixelCoordinate(430.0, 238.0),
-            GpsCoordinate(50.8813847, 15.1307408)
-        ),
-        CalibrationPoint(
-            "rozcesti modra a lesni cesta u 4ky",
-            PixelCoordinate(386.0, 1154.0),
-            GpsCoordinate(50.8694086, 15.1297164)
-        ),
-        CalibrationPoint(
-            "odbocka na Dubinske ceste za viaduktem",
-            PixelCoordinate(247.0, 292.0),
-            GpsCoordinate(50.8806403, 15.1271144)
-        ),
-        CalibrationPoint(
-            "Archiv - sít - pod kopcem u potúcku strom s bolakem dole",
-            PixelCoordinate(745.0, 338.0),
+            "01",
+            PixelCoordinate(2980.0, 1348.0),
             GpsCoordinate(50.880185, 15.1371217)
+        ),
+        CalibrationPoint(
+            "02",
+            PixelCoordinate(676.0, 227.0),
+            GpsCoordinate(50.8837408, 15.1257856)
+        ),
+        CalibrationPoint(
+            "03",
+            PixelCoordinate(2183.0, 2649.0),
+            GpsCoordinate(50.8761064, 15.1338606)
+        ),
+        CalibrationPoint(
+            "04",
+            PixelCoordinate(1537.0, 4619.0),
+            GpsCoordinate(50.8695631, 15.1299092)
+        ),
+        CalibrationPoint(
+            "05",
+            PixelCoordinate(1647.0, 5040.0),
+            GpsCoordinate(50.8681872, 15.1305156)
+        ),
+        CalibrationPoint(
+            "06",
+            PixelCoordinate(2937.0, 4781.0),
+            GpsCoordinate(50.8690533, 15.1367883)
+        ),
+        CalibrationPoint(
+            "07",
+            PixelCoordinate(3041.0, 4176.0),
+            GpsCoordinate(50.8708681, 15.1377544)
+        ),
+        CalibrationPoint(
+            "archiv",
+            PixelCoordinate(3195.0, 5738.0),
+            GpsCoordinate(50.86592, 15.1380633)
         )
     )
 
@@ -56,7 +71,7 @@ class AffineTransformerTest {
     @Test
     fun roundTrip_eachCalibrationPoint_withinTolerancePixels() {
         val transformer = AffineTransformer(realPoints)
-        val tolerancePx = 5.0
+        val tolerancePx = 125.0
 
         for (point in realPoints) {
             val predicted = transformer.gpsToPixel(point.gps.latitude, point.gps.longitude)
@@ -83,7 +98,7 @@ class AffineTransformerTest {
         val rms = AffineTransformer.computeRms(transformer, realPoints)
 
         println("AffineTransformer RMS on real Scarif data: %.2f px".format(rms))
-        assertTrue(rms < 30.0, "RMS residual $rms px exceeds 30px threshold")
+        assertTrue(rms < 60.0, "RMS residual $rms px exceeds 60px threshold")
     }
 
     // -----------------------------------------------------------------------

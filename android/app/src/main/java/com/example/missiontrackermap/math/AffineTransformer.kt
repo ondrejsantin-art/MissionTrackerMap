@@ -40,80 +40,64 @@ class AffineTransformer(points: List<CalibrationPoint>) : CoordinateTransformer 
     }
 
     /**
-     * Fits the affine transform using least-squares normal equations.
+     * Fits the affine transform using least-squares normal equations on centered coordinates.
      * Returns a pair of (xCoefficients, yCoefficients), each [a/d, b/e, c/f].
      */
     private fun fitAffine(points: List<CalibrationPoint>): Pair<DoubleArray, DoubleArray> {
         val n = points.size
 
-        // Build matrix A (n×3) and right-hand side vectors bx, by
-        // Row i: [lat_i, lon_i, 1]
-        val A = Array(n) { i ->
-            doubleArrayOf(points[i].gps.latitude, points[i].gps.longitude, 1.0)
+        // Calculate means for centering
+        var meanLat = 0.0
+        var meanLon = 0.0
+        var meanPx = 0.0
+        var meanPy = 0.0
+        for (p in points) {
+            meanLat += p.gps.latitude
+            meanLon += p.gps.longitude
+            meanPx += p.pixel.x
+            meanPy += p.pixel.y
         }
-        val bx = DoubleArray(n) { i -> points[i].pixel.x }
-        val by = DoubleArray(n) { i -> points[i].pixel.y }
+        meanLat /= n
+        meanLon /= n
+        meanPx /= n
+        meanPy /= n
 
-        // Compute AᵀA (3×3) and Aᵀbx, Aᵀby (3-vectors)
-        val ata = multiplyAtA(A, n)
-        val atbx = multiplyAtB(A, bx, n)
-        val atby = multiplyAtB(A, by, n)
+        // Compute terms for 2x2 normal equations
+        var sLat2 = 0.0
+        var sLon2 = 0.0
+        var sLatLon = 0.0
+        var sLatPx = 0.0
+        var sLonPx = 0.0
+        var sLatPy = 0.0
+        var sLonPy = 0.0
 
-        // Solve 3×3 linear system: ata * coeffX = atbx
-        val coeffX = solveLinear3x3(ata, atbx)
-        val coeffY = solveLinear3x3(ata, atby)
+        for (p in points) {
+            val latDiff = p.gps.latitude - meanLat
+            val lonDiff = p.gps.longitude - meanLon
+            val pxDiff = p.pixel.x - meanPx
+            val pyDiff = p.pixel.y - meanPy
 
-        return Pair(coeffX, coeffY)
-    }
-
-    /** Computes AᵀA for an (n×3) matrix A. Returns a 3×3 matrix. */
-    private fun multiplyAtA(A: Array<DoubleArray>, n: Int): Array<DoubleArray> {
-        val result = Array(3) { DoubleArray(3) }
-        for (i in 0 until 3) {
-            for (j in 0 until 3) {
-                var sum = 0.0
-                for (k in 0 until n) sum += A[k][i] * A[k][j]
-                result[i][j] = sum
-            }
+            sLat2 += latDiff * latDiff
+            sLon2 += lonDiff * lonDiff
+            sLatLon += latDiff * lonDiff
+            sLatPx += latDiff * pxDiff
+            sLonPx += lonDiff * pxDiff
+            sLatPy += latDiff * pyDiff
+            sLonPy += lonDiff * pyDiff
         }
-        return result
-    }
 
-    /** Computes Aᵀb for an (n×3) matrix A and n-vector b. Returns a 3-vector. */
-    private fun multiplyAtB(A: Array<DoubleArray>, b: DoubleArray, n: Int): DoubleArray {
-        val result = DoubleArray(3)
-        for (i in 0 until 3) {
-            var sum = 0.0
-            for (k in 0 until n) sum += A[k][i] * b[k]
-            result[i] = sum
-        }
-        return result
-    }
-
-    /**
-     * Solves a 3×3 linear system M * x = b using Cramer's rule.
-     * Robust enough for our use case where M is always well-conditioned
-     * (calibration points are spread across the map).
-     */
-    private fun solveLinear3x3(M: Array<DoubleArray>, b: DoubleArray): DoubleArray {
-        val det = det3x3(M)
+        val det = sLat2 * sLon2 - sLatLon * sLatLon
         require(det != 0.0) { "Calibration matrix is singular — calibration points may be collinear" }
 
-        val x = DoubleArray(3)
-        for (col in 0 until 3) {
-            // Build matrix with column `col` replaced by b
-            val Mcol = Array(3) { r -> M[r].copyOf() }
-            for (r in 0 until 3) Mcol[r][col] = b[r]
-            x[col] = det3x3(Mcol) / det
-        }
-        return x
-    }
+        val a = (sLatPx * sLon2 - sLonPx * sLatLon) / det
+        val b = (sLonPx * sLat2 - sLatPx * sLatLon) / det
+        val d = (sLatPy * sLon2 - sLonPy * sLatLon) / det
+        val e = (sLonPy * sLat2 - sLatPy * sLatLon) / det
 
-    /** Computes the determinant of a 3×3 matrix using cofactor expansion. */
-    private fun det3x3(M: Array<DoubleArray>): Double {
-        return M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) -
-               M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) +
-               M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0])
+        val c = meanPx - a * meanLat - b * meanLon
+        val f = meanPy - d * meanLat - e * meanLon
+
+        return Pair(doubleArrayOf(a, b, c), doubleArrayOf(d, e, f))
     }
 
     companion object {

@@ -1,0 +1,97 @@
+{
+    "version": 1,
+    "image": "scarif.png",
+    "imageWidth": 4220,
+    "imageHeight": 5964,
+    "selectedPoint": null,
+    "points": [
+        {
+            "name": "01",
+            "pixel": {
+                "x": 2980,
+                "y": 1348
+            },
+            "gps": {
+                "latitude": 50.880185,
+                "longitude": 15.1371217
+            }
+        },
+        {
+            "name": "02",
+            "pixel": {
+                "x": 676,
+                "y": 227
+            },
+            "gps": {
+                "latitude": 50.8837408,
+                "longitude": 15.1257856
+            }
+        },
+        {
+            "name": "03",
+            "pixel": {
+                "x": 2183,
+                "y": 2649
+            },
+            "gps": {
+                "latitude": 50.8761064,
+                "longitude": 15.1338606
+            }
+        },
+        {
+            "name": "04",
+            "pixel": {
+                "x": 1537,
+                "y": 4619
+            },
+            "gps": {
+                "latitude": 50.8695631,
+                "longitude": 15.1299092
+            }
+        },
+        {
+            "name": "05",
+            "pixel": {
+                "x": 1647,
+                "y": 5040
+            },
+            "gps": {
+                "latitude": 50.8681872,
+                "longitude": 15.1305156
+            }
+        },
+        {
+            "name": "06",
+            "pixel": {
+                "x": 2937,
+                "y": 4781
+            },
+            "gps": {
+                "latitude": 50.8690533,
+                "longitude": 15.1367883
+            }
+        },
+        {
+            "name": "07",
+            "pixel": {
+                "x": 3041,
+                "y": 4176
+            },
+            "gps": {
+                "latitude": 50.8708681,
+                "longitude": 15.1377544
+            }
+        },
+        {
+            "name": "archiv",
+            "pixel": {
+                "x": 3195,
+                "y": 5738
+            },
+            "gps": {
+                "latitude": 50.86592,
+                "longitude": 15.1380633
+            }
+        }
+    ]
+}
