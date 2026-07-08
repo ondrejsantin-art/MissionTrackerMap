@@ -1,7 +1,21 @@
 package com.example.missiontrackermap.repository
 
-import com.example.missiontrackermap.model.MissionTrackerModel
+import android.content.Context
+import com.example.missiontrackermap.model.MissionState
 
-class MissionTrackerRepository {
-    fun getMissionTracker(): MissionTrackerModel = MissionTrackerModel()
+/**
+ * Repository that provides mission data to the ViewModel.
+ * Currently loads the default 'scarif' mission from assets.
+ * Will be extended in Task G to support multiple missions from filesystem.
+ */
+class MissionTrackerRepository(private val context: Context) {
+
+    private val loader = MissionPackageLoader(context)
+
+    /** Default mission ID bundled in assets. */
+    private val defaultMissionId = "scarif"
+
+    fun loadDefaultMission(): MissionState? = loader.load(defaultMissionId)
+
+    fun availableMissions(): List<String> = loader.availableMissions()
 }

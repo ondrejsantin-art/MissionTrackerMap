@@ -1,0 +1,64 @@
+{
+    "version": 1,
+    "image": "archiv-mapa-starwars-style.png",
+    "imageWidth": 1055,
+    "imageHeight": 1491,
+    "selectedPoint": null,
+    "points": [
+        {
+            "name": "rozcestu u krize sedlaka pepka",
+            "pixel": {
+                "x": 1005,
+                "y": 604
+            },
+            "gps": {
+                "latitude": 50.8768306,
+                "longitude": 15.1428431
+            }
+        },
+        {
+            "name": "rozcesti pod viaduktem",
+            "pixel": {
+                "x": 430,
+                "y": 238
+            },
+            "gps": {
+                "latitude": 50.8813847,
+                "longitude": 15.1307408
+            }
+        },
+        {
+            "name": "rozcesti modra a lesni cesta u 4ky",
+            "pixel": {
+                "x": 386,
+                "y": 1154
+            },
+            "gps": {
+                "latitude": 50.8694086,
+                "longitude": 15.1297164
+            }
+        },
+        {
+            "name": "odbocka na Dubinske ceste za viaduktem",
+            "pixel": {
+                "x": 247,
+                "y": 292
+            },
+            "gps": {
+                "latitude": 50.8806403,
+                "longitude": 15.1271144
+            }
+        },
+        {
+            "name": "Archiv - síť - pod kopcem u potůčku strom s bolakem dole",
+            "pixel": {
+                "x": 745,
+                "y": 338
+            },
+            "gps": {
+                "latitude": 50.880185,
+                "longitude": 15.1371217
+            }
+        }
+    ]
+}

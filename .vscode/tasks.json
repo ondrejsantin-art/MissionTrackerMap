@@ -15,6 +15,16 @@
                 "cwd": "${workspaceFolder}/android"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Run Android App",
+            "type": "shell",
+            "command": "android run",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "dependsOn": "Build Android App"
         }
     ]
 }
