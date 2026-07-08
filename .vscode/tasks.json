@@ -6,6 +6,15 @@
             "type": "shell",
             "command": "${workspaceFolder}/.venv/bin/pip install -r calibration-editor/requirements.txt",
             "problemMatcher": []
+        },
+        {
+            "label": "Build Android App",
+            "type": "shell",
+            "command": "./gradlew assembleDebug",
+            "options": {
+                "cwd": "${workspaceFolder}/android"
+            },
+            "problemMatcher": []
         }
     ]
 }

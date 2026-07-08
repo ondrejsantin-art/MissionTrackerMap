@@ -11,7 +11,8 @@
                 "ANDROID_HOME": "/usr/lib/android-sdk"
             },
             "args": "-s MissionTrackerAVD",
-            "vmArgs": "-Dcom.android.sdkmanager.toolsdir=/usr/lib/android-sdk/cmdline-tools/17.0/bin"
+            "vmArgs": "-Dcom.android.sdkmanager.toolsdir=/usr/lib/android-sdk/cmdline-tools/17.0/bin",
+            "preLaunchTask": "Build Android App"
         }
     ]
 }
