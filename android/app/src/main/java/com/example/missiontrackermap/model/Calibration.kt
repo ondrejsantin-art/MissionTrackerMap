@@ -11,7 +11,8 @@ data class PixelCoordinate(
 @Serializable
 data class GpsCoordinate(
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    val accuracy: Float? = null
 )
 
 @Serializable

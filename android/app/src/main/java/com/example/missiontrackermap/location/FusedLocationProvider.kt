@@ -63,7 +63,8 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
                         result.lastLocation?.let { location ->
                             val coordinate = GpsCoordinate(
                                 latitude = location.latitude,
-                                longitude = location.longitude
+                                longitude = location.longitude,
+                                accuracy = location.accuracy
                             )
                             Log.d(TAG, "GPS: lat=%.6f, lon=%.6f, acc=%.1fm"
                                 .format(coordinate.latitude, coordinate.longitude, location.accuracy))

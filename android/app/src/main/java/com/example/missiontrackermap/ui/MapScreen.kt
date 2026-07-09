@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -109,6 +110,7 @@ fun MapScreen(
     val currentMissionId by viewModel.currentMissionId.collectAsState()
     val availableMissions by viewModel.availableMissions.collectAsState()
     val isGpsOverridden by viewModel.isGpsOverridden.collectAsState()
+    val gpsLocation by viewModel.gpsLocation.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -153,13 +155,41 @@ fun MapScreen(
             }
 
             else -> {
-                // Map + dot
-                MissionMapContent(
-                    bitmap = mapBitmap!!,
-                    imageWidth = calibration?.imageWidth?.toFloat() ?: mapBitmap!!.width.toFloat(),
-                    imageHeight = calibration?.imageHeight?.toFloat() ?: mapBitmap!!.height.toFloat(),
-                    dotPositionInImagePx = dotPosition
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Map + dot
+                    MissionMapContent(
+                        bitmap = mapBitmap!!,
+                        imageWidth = calibration?.imageWidth?.toFloat() ?: mapBitmap!!.width.toFloat(),
+                        imageHeight = calibration?.imageHeight?.toFloat() ?: mapBitmap!!.height.toFloat(),
+                        dotPositionInImagePx = dotPosition
+                    )
+
+                    // Show GPS accuracy info in bottom-right corner
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .navigationBarsPadding()
+                            .padding(end = 16.dp, bottom = 24.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.6f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        val accuracyText = when {
+                            isGpsOverridden -> "N/A"
+                            gpsLocation != null && gpsLocation?.accuracy != null -> {
+                                "+/-${gpsLocation?.accuracy?.toInt()}m"
+                            }
+                            else -> "--"
+                        }
+                        Text(
+                            text = "GPS: $accuracyText",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             }
         }
 
@@ -456,6 +486,7 @@ private fun MissionMapContent(
                 fontSize = 12.sp,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(bottom = 24.dp)
             )
         }
