@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlinx.serialization.json.Json
 
 private const val TAG = "MissionTrackerViewModel"
 
@@ -49,6 +51,12 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val _loadError = MutableStateFlow<String?>(null)
     val loadError: StateFlow<String?> = _loadError
 
+    private val _currentMissionId = MutableStateFlow<String>("scarif")
+    val currentMissionId: StateFlow<String> = _currentMissionId
+
+    private val _availableMissions = MutableStateFlow<List<String>>(emptyList())
+    val availableMissions: StateFlow<List<String>> = _availableMissions
+
     // --- GPS state ---
     private val _gpsLocation = MutableStateFlow<GpsCoordinate?>(null)
     val gpsLocation: StateFlow<GpsCoordinate?> = _gpsLocation
@@ -70,16 +78,81 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     init {
-        loadMission()
+        refreshMissions()
+        loadMission("scarif")
     }
 
-    /** Loads the default mission from assets in a background coroutine. */
-    private fun loadMission() {
+    fun refreshMissions() {
+        _availableMissions.value = repository.availableMissions()
+    }
+
+    fun selectMission(missionId: String) {
+        loadMission(missionId)
+    }
+
+    fun importMission(missionName: String, imageUri: android.net.Uri, jsonUri: android.net.Uri): Result<Unit> {
+        return try {
+            val context = getApplication<Application>()
+
+            // 1. Read JSON file content
+            val jsonContent = context.contentResolver.openInputStream(jsonUri)?.use { input ->
+                input.bufferedReader().readText()
+            } ?: return Result.failure(Exception("Failed to open calibration file"))
+
+            // 2. Parse and validate JSON
+            val jsonDecoder = Json { ignoreUnknownKeys = true }
+            val calibration = try {
+                jsonDecoder.decodeFromString<CalibrationData>(jsonContent)
+            } catch (e: Exception) {
+                return Result.failure(Exception("Invalid JSON format: ${e.message}"))
+            }
+
+            if (calibration.points.size < 3) {
+                return Result.failure(Exception("Calibration must have at least 3 points (found ${calibration.points.size})"))
+            }
+
+            // 3. Create destination directory
+            val missionsDir = File(context.filesDir, "missions")
+            val missionDir = File(missionsDir, missionName)
+            if (!missionDir.exists() && !missionDir.mkdirs()) {
+                return Result.failure(Exception("Failed to create mission directory"))
+            }
+
+            // 4. Update JSON calibration data and write to destination
+            val updatedCalibration = calibration.copy(image = "$missionName.png")
+            val updatedJsonContent = Json.encodeToString(CalibrationData.serializer(), updatedCalibration)
+            val jsonDestFile = File(missionDir, "$missionName.json")
+            jsonDestFile.writeText(updatedJsonContent)
+
+            // 5. Copy the PNG image file to destination
+            val imageDestFile = File(missionDir, "$missionName.png")
+            context.contentResolver.openInputStream(imageUri)?.use { input ->
+                imageDestFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return Result.failure(Exception("Failed to copy image file"))
+
+            Log.i(TAG, "Successfully imported mission: $missionName")
+
+            // 6. Refresh available missions and load the imported mission
+            refreshMissions()
+            loadMission(missionName)
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error importing mission", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Loads a mission from repository in a background coroutine. */
+    private fun loadMission(missionId: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val mission = repository.loadDefaultMission()
+            _loadError.value = null
+            val mission = repository.loadMission(missionId)
             if (mission == null) {
-                _loadError.value = "Failed to load mission"
-                Log.e(TAG, "Mission load returned null")
+                _loadError.value = "Failed to load mission '$missionId'"
+                Log.e(TAG, "Mission load returned null for '$missionId'")
                 return@launch
             }
 
@@ -97,6 +170,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
             _mapBitmap.value = bitmap
             _calibration.value = mission.calibration
+            _currentMissionId.value = missionId
 
             Log.i(TAG, "Mission '${mission.missionId}' ready: " +
                     "${mission.calibration.imageWidth}x${mission.calibration.imageHeight}px, " +

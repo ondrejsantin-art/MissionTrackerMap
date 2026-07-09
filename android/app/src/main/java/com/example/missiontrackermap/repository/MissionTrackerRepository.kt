@@ -17,5 +17,7 @@ class MissionTrackerRepository(private val context: Context) {
 
     fun loadDefaultMission(): MissionState? = loader.load(defaultMissionId)
 
+    fun loadMission(missionId: String): MissionState? = loader.load(missionId)
+
     fun availableMissions(): List<String> = loader.availableMissions()
 }

@@ -26,13 +26,32 @@ class MissionPackageLoader(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Loads a mission by ID from assets.
+     * Loads a mission by ID from internal storage or assets.
      * Returns [MissionState] on success, null on failure (with Logcat error).
      */
     fun load(missionId: String): MissionState? {
         return try {
-            val calibration = loadCalibration(missionId)
-            val imageBytes = loadImage(missionId, calibration.image)
+            val localMissionDir = java.io.File(java.io.File(context.filesDir, MISSIONS_ROOT), missionId)
+            val calibration: CalibrationData
+            val imageBytes: ByteArray
+
+            if (localMissionDir.exists() && localMissionDir.isDirectory) {
+                val calibrationFile = java.io.File(localMissionDir, "$missionId.json")
+                if (!calibrationFile.exists()) {
+                    throw java.io.FileNotFoundException("Calibration file not found at ${calibrationFile.absolutePath}")
+                }
+                val rawJson = calibrationFile.readText()
+                calibration = json.decodeFromString<CalibrationData>(rawJson)
+
+                val imageFile = java.io.File(localMissionDir, calibration.image)
+                if (!imageFile.exists()) {
+                    throw java.io.FileNotFoundException("Image file not found at ${imageFile.absolutePath}")
+                }
+                imageBytes = imageFile.readBytes()
+            } else {
+                calibration = loadCalibration(missionId)
+                imageBytes = loadImage(missionId, calibration.image)
+            }
 
             Log.i(TAG, "Mission '$missionId' loaded: image=${calibration.imageWidth}x${calibration.imageHeight}, " +
                     "calibration points=${calibration.points.size}")
@@ -53,15 +72,29 @@ class MissionPackageLoader(private val context: Context) {
     }
 
     /**
-     * Returns the list of available mission IDs (asset subfolder names under missions/).
+     * Returns the list of available mission IDs (asset subfolder names + local storage).
      */
     fun availableMissions(): List<String> {
-        return try {
+        val assetMissions = try {
             context.assets.list(MISSIONS_ROOT)?.toList() ?: emptyList()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to list missions: ${e.message}")
+            Log.e(TAG, "Failed to list asset missions: ${e.message}")
             emptyList()
         }
+
+        val localMissions = try {
+            val missionsDir = java.io.File(context.filesDir, MISSIONS_ROOT)
+            if (missionsDir.exists() && missionsDir.isDirectory) {
+                missionsDir.list()?.toList() ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list local missions: ${e.message}")
+            emptyList()
+        }
+
+        return (assetMissions + localMissions).distinct()
     }
 
     private fun loadCalibration(missionId: String): CalibrationData {

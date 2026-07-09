@@ -8,10 +8,14 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,17 +40,52 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import android.provider.OpenableColumns
+
+private fun getFileName(context: android.content.Context, uri: android.net.Uri): String {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index != -1) {
+                    result = cursor.getString(index)
+                }
+            }
+        } finally {
+            cursor?.close()
+        }
+    }
+    if (result == null) {
+        result = uri.path
+        val cut = result?.lastIndexOf('/')
+        if (cut != null && cut != -1) {
+            result = result?.substring(cut + 1)
+        }
+    }
+    return result ?: "Unknown"
+}
 
 /**
  * The main mission map screen.
@@ -62,13 +101,39 @@ fun MapScreen(
     viewModel: MissionTrackerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val mapBitmap by viewModel.mapBitmap.collectAsState()
     val calibration by viewModel.calibration.collectAsState()
     val dotPosition by viewModel.dotPosition.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
+    val currentMissionId by viewModel.currentMissionId.collectAsState()
+    val availableMissions by viewModel.availableMissions.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showSelectMissionDialog by remember { mutableStateOf(false) }
+    var showLoadNewMissionDialog by remember { mutableStateOf(false) }
+
+    // Dialog state for loading/importing a new mission
+    var missionName by remember { mutableStateOf("new_mission") }
+    var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var selectedJsonUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            selectedImageUri = uri
+        }
+    }
+
+    val pickJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            selectedJsonUri = uri
+        }
+    }
 
     Box(
         modifier = modifier
@@ -116,6 +181,24 @@ fun MapScreen(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text("Select Mission") },
+                    onClick = {
+                        menuExpanded = false
+                        viewModel.refreshMissions()
+                        showSelectMissionDialog = true
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Load New Mission") },
+                    onClick = {
+                        menuExpanded = false
+                        missionName = "new_mission"
+                        selectedImageUri = null
+                        selectedJsonUri = null
+                        showLoadNewMissionDialog = true
+                    }
+                )
+                DropdownMenuItem(
                     text = { Text("Application Info") },
                     onClick = {
                         menuExpanded = false
@@ -123,6 +206,125 @@ fun MapScreen(
                     }
                 )
             }
+        }
+
+        // Select Mission Dialog
+        if (showSelectMissionDialog) {
+            AlertDialog(
+                onDismissRequest = { showSelectMissionDialog = false },
+                title = { Text("Select Mission") },
+                text = {
+                    LazyColumn {
+                        items(availableMissions) { missionId ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.selectMission(missionId)
+                                        showSelectMissionDialog = false
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (missionId == currentMissionId),
+                                    onClick = {
+                                        viewModel.selectMission(missionId)
+                                        showSelectMissionDialog = false
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = missionId,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSelectMissionDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+
+        // Load New Mission Dialog
+        if (showLoadNewMissionDialog) {
+            AlertDialog(
+                onDismissRequest = { showLoadNewMissionDialog = false },
+                title = { Text("Load New Mission") },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = missionName,
+                            onValueChange = { missionName = it },
+                            label = { Text("Mission Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(onClick = { pickImageLauncher.launch("image/png") }) {
+                                Text("Select PNG")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = selectedImageUri?.let { getFileName(context, it) } ?: "No file selected",
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(onClick = { pickJsonLauncher.launch("*/*") }) {
+                                Text("Select JSON")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = selectedJsonUri?.let { getFileName(context, it) } ?: "No file selected",
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = missionName.isNotBlank() && selectedImageUri != null && selectedJsonUri != null,
+                        onClick = {
+                            val imgUri = selectedImageUri!!
+                            val jsUri = selectedJsonUri!!
+                            val res = viewModel.importMission(missionName.trim(), imgUri, jsUri)
+                            if (res.isSuccess) {
+                                Toast.makeText(context, "Mission imported successfully", Toast.LENGTH_SHORT).show()
+                                showLoadNewMissionDialog = false
+                            } else {
+                                val errorMsg = res.exceptionOrNull()?.message ?: "Unknown error"
+                                Toast.makeText(context, "Failed: $errorMsg", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    ) {
+                        Text("Import")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLoadNewMissionDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
 
         // About Application Dialog
