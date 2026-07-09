@@ -29,6 +29,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.min
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.drawscope.withTransform
 
 /**
  * The main mission map screen.
@@ -93,11 +99,11 @@ private fun MissionMapContent(
         // The scale factor keeps aspect ratio, fitting entirely within the canvas.
         val scaleX = canvasWidthPx / imageWidth
         val scaleY = canvasHeightPx / imageHeight
-        val scale = min(scaleX, scaleY)
+        val fitScale = min(scaleX, scaleY)
 
         // The image is centered — compute the top-left offset
-        val scaledImageW = imageWidth * scale
-        val scaledImageH = imageHeight * scale
+        val scaledImageW = imageWidth * fitScale
+        val scaledImageH = imageHeight * fitScale
         val offsetX = (canvasWidthPx - scaledImageW) / 2f
         val offsetY = (canvasHeightPx - scaledImageH) / 2f
 
@@ -122,29 +128,46 @@ private fun MissionMapContent(
             label = "dot_radius"
         )
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            // --- Draw the map image ---
-            drawImage(
-                image = bitmap,
-                dstOffset = androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()),
-                dstSize = androidx.compose.ui.unit.IntSize(scaledImageW.toInt(), scaledImageH.toInt())
-            )
+        var zoomScale by remember { mutableStateOf(1f) }
+        var zoomOffset by remember { mutableStateOf(Offset.Zero) }
 
-            // --- Draw the blinking red dot ---
-            dotPositionInImagePx?.let { imagePixel ->
-                // Convert image pixel coordinates → screen coordinates
-                val screenX = offsetX + imagePixel.x * scale
-                val screenY = offsetY + imagePixel.y * scale
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        zoomScale = (zoomScale * zoom).coerceIn(1f, 5f)
+                        zoomOffset = if (zoomScale == 1f) Offset.Zero else zoomOffset + pan
+                    }
+                }
+        ) {
+            withTransform({
+                translate(zoomOffset.x, zoomOffset.y)
+                scale(zoomScale, zoomScale, pivot = center)
+            }) {
+                // --- Draw the map image ---
+                drawImage(
+                    image = bitmap,
+                    dstOffset = androidx.compose.ui.unit.IntOffset(offsetX.toInt(), offsetY.toInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(scaledImageW.toInt(), scaledImageH.toInt())
+                )
 
-                // Only draw if the dot is within the visible image area
-                if (screenX in offsetX..(offsetX + scaledImageW) &&
-                    screenY in offsetY..(offsetY + scaledImageH)
-                ) {
-                    drawGpsDot(
-                        center = Offset(screenX, screenY),
-                        radius = dotRadius,
-                        alpha = dotAlpha
-                    )
+                // --- Draw the blinking red dot ---
+                dotPositionInImagePx?.let { imagePixel ->
+                    // Convert image pixel coordinates → screen coordinates
+                    val screenX = offsetX + imagePixel.x * fitScale
+                    val screenY = offsetY + imagePixel.y * fitScale
+
+                    // Only draw if the dot is within the visible image area
+                    if (screenX in offsetX..(offsetX + scaledImageW) &&
+                        screenY in offsetY..(offsetY + scaledImageH)
+                    ) {
+                        drawGpsDot(
+                            center = Offset(screenX, screenY),
+                            radius = dotRadius,
+                            alpha = dotAlpha
+                        )
+                    }
                 }
             }
         }

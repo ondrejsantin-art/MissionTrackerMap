@@ -48,6 +48,17 @@ class MainActivity : ComponentActivity() {
                     val viewModel: MissionTrackerViewModel = viewModel()
                     viewModelRef = viewModel
 
+                    androidx.compose.runtime.LaunchedEffect(viewModel) {
+                        if (ContextCompat.checkSelfPermission(
+                                this@MainActivity,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            Log.i(TAG, "Starting location updates from Compose LaunchedEffect")
+                            viewModel.startLocationUpdates()
+                        }
+                    }
+
                     MissionTrackerApp(navController = navController, viewModel = viewModel)
                 }
             }
