@@ -35,6 +35,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 
 /**
  * The main mission map screen.
@@ -54,6 +66,9 @@ fun MapScreen(
     val calibration by viewModel.calibration.collectAsState()
     val dotPosition by viewModel.dotPosition.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
+
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -80,6 +95,57 @@ fun MapScreen(
                     dotPositionInImagePx = dotPosition
                 )
             }
+        }
+
+        // Overlay the Menu Button in the top-right corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(16.dp)
+        ) {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Menu",
+                    tint = Color.White
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Application Info") },
+                    onClick = {
+                        menuExpanded = false
+                        showAboutDialog = true
+                    }
+                )
+            }
+        }
+
+        // About Application Dialog
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                title = { Text(text = "Application Info") },
+                text = {
+                    Column {
+                        Text(text = "Author: Ondrej Santin")
+                        Text(text = "Email: ondrej.santin@gmail.com")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Version: 1.0")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "License: MIT License")
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAboutDialog = false }) {
+                        Text("OK")
+                    }
+                }
+            )
         }
     }
 }
