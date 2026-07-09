@@ -62,6 +62,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import android.provider.OpenableColumns
+import com.example.missiontrackermap.math.ScaleCalculator
+import com.example.missiontrackermap.model.CalibrationData
+import com.example.missiontrackermap.math.AffineTransformer
 
 private fun getFileName(context: android.content.Context, uri: android.net.Uri): String {
     var result: String? = null
@@ -161,7 +164,8 @@ fun MapScreen(
                         bitmap = mapBitmap!!,
                         imageWidth = calibration?.imageWidth?.toFloat() ?: mapBitmap!!.width.toFloat(),
                         imageHeight = calibration?.imageHeight?.toFloat() ?: mapBitmap!!.height.toFloat(),
-                        dotPositionInImagePx = dotPosition
+                        dotPositionInImagePx = dotPosition,
+                        calibration = calibration
                     )
 
                     // Show GPS accuracy info in bottom-right corner
@@ -395,7 +399,8 @@ private fun MissionMapContent(
     bitmap: ImageBitmap,
     imageWidth: Float,
     imageHeight: Float,
-    dotPositionInImagePx: Offset?
+    dotPositionInImagePx: Offset?,
+    calibration: CalibrationData?
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val canvasWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
@@ -490,6 +495,94 @@ private fun MissionMapContent(
                     .padding(bottom = 24.dp)
             )
         }
+
+        // Show visual scale in the left bottom corner
+        if (calibration != null) {
+            val imageScalePx = remember(calibration) {
+                ScaleCalculator.calculateOneKmPixelLength(calibration.points)
+            }
+
+            if (imageScalePx > 0f) {
+                val density = LocalDensity.current
+                val maxScaleWidthPx = with(density) { 150.dp.toPx() }
+
+                val scaleValues = remember {
+                    listOf(
+                        Pair(2000.0, "2 km"),
+                        Pair(1000.0, "1 km"),
+                        Pair(500.0, "0.5 km"),
+                        Pair(200.0, "200 m"),
+                        Pair(100.0, "100 m"),
+                        Pair(50.0, "50 m"),
+                        Pair(25.0, "25 m"),
+                        Pair(10.0, "10 m")
+                    )
+                }
+
+                // Choose the best scale item that fits under maxScaleWidthPx
+                val bestScale = remember(imageScalePx, fitScale, zoomScale, maxScaleWidthPx) {
+                    scaleValues
+                        .map { (meters, label) ->
+                            val px = imageScalePx * (meters / 1000.0) * fitScale * zoomScale
+                            ScaleItem(label, px.toFloat())
+                        }
+                        .firstOrNull { it.px <= maxScaleWidthPx }
+                        ?: ScaleItem("10 m", (imageScalePx * (10.0 / 1000.0) * fitScale * zoomScale).toFloat())
+                }
+
+                val widthDp = with(density) { bestScale.px.toDp() }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, bottom = 24.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        )
+                        .padding(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text(
+                            text = bestScale.label,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 10.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Canvas(modifier = Modifier.width(widthDp).height(6.dp)) {
+                            val w = size.width
+                            val h = size.height
+                            val strokeWidthPx = 1.5.dp.toPx()
+                            // Draw horizontal line
+                            drawLine(
+                                color = Color.White,
+                                start = Offset(0f, h / 2),
+                                end = Offset(w, h / 2),
+                                strokeWidth = strokeWidthPx
+                            )
+                            // Left tick
+                            drawLine(
+                                color = Color.White,
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, h),
+                                strokeWidth = strokeWidthPx
+                            )
+                            // Right tick
+                            drawLine(
+                                color = Color.White,
+                                start = Offset(w, 0f),
+                                end = Offset(w, h),
+                                strokeWidth = strokeWidthPx
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -546,3 +639,5 @@ private fun ErrorOverlay(message: String) {
         )
     }
 }
+
+private data class ScaleItem(val label: String, val px: Float)
