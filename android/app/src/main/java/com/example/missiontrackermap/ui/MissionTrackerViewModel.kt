@@ -61,6 +61,12 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val _gpsLocation = MutableStateFlow<GpsCoordinate?>(null)
     val gpsLocation: StateFlow<GpsCoordinate?> = _gpsLocation
 
+    val isGpsOverridden: StateFlow<Boolean> = locationProvider.isOverrideEnabled
+
+    fun toggleGpsOverride() {
+        locationProvider.isOverrideEnabled.value = !locationProvider.isOverrideEnabled.value
+    }
+
     // --- Computed dot position (Task F) ---
     // Combines calibration data + GPS position → pixel Offset on the image
     val dotPosition: StateFlow<Offset?> = combine(_calibration, _gpsLocation) { cal, gps ->

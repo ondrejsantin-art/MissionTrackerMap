@@ -108,6 +108,7 @@ fun MapScreen(
     val loadError by viewModel.loadError.collectAsState()
     val currentMissionId by viewModel.currentMissionId.collectAsState()
     val availableMissions by viewModel.availableMissions.collectAsState()
+    val isGpsOverridden by viewModel.isGpsOverridden.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -196,6 +197,13 @@ fun MapScreen(
                         selectedImageUri = null
                         selectedJsonUri = null
                         showLoadNewMissionDialog = true
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(if (isGpsOverridden) "Disable GPS Override" else "Enable GPS Override") },
+                    onClick = {
+                        menuExpanded = false
+                        viewModel.toggleGpsOverride()
                     }
                 )
                 DropdownMenuItem(
