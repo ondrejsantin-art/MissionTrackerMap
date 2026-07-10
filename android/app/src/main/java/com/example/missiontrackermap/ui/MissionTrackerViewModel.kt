@@ -14,6 +14,7 @@ import com.example.missiontrackermap.math.CoordinateTransformer
 import com.example.missiontrackermap.model.CalibrationData
 import com.example.missiontrackermap.model.GpsCoordinate
 import com.example.missiontrackermap.repository.MissionTrackerRepository
+import com.example.missiontrackermap.repository.MissionFileHelper
 import com.example.missiontrackermap.sensor.OrientationProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -207,6 +208,53 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
                     "${mission.calibration.imageWidth}x${mission.calibration.imageHeight}px, " +
                     "${mission.calibration.points.size} calibration points")
         }
+    }
+
+    fun isBuiltInMission(missionId: String): Boolean {
+        val assetMissions = try {
+            getApplication<Application>().assets.list("missions")?.toList() ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        return assetMissions.contains(missionId)
+    }
+
+    fun renameMission(oldMissionId: String, newMissionId: String): Result<Unit> {
+        if (newMissionId.isBlank()) {
+            return Result.failure(Exception("New name cannot be blank"))
+        }
+        if (isBuiltInMission(oldMissionId)) {
+            return Result.failure(Exception("Cannot rename built-in mission"))
+        }
+        if (isBuiltInMission(newMissionId)) {
+            return Result.failure(Exception("A built-in mission with this name already exists"))
+        }
+        val context = getApplication<Application>()
+        val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))
+        val result = fileHelper.renameMission(oldMissionId, newMissionId)
+        if (result.isSuccess) {
+            if (_currentMissionId.value == oldMissionId) {
+                loadMission(newMissionId)
+            }
+            refreshMissions()
+        }
+        return result
+    }
+
+    fun deleteMission(missionId: String): Result<Unit> {
+        if (isBuiltInMission(missionId)) {
+            return Result.failure(Exception("Cannot delete built-in mission"))
+        }
+        val context = getApplication<Application>()
+        val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))
+        val result = fileHelper.deleteMission(missionId)
+        if (result.isSuccess) {
+            if (_currentMissionId.value == missionId) {
+                loadMission("scarif")
+            }
+            refreshMissions()
+        }
+        return result
     }
 
     /**

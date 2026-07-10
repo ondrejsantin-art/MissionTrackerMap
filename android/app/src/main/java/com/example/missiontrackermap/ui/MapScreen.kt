@@ -52,6 +52,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -126,6 +128,11 @@ fun MapScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showSelectMissionDialog by remember { mutableStateOf(false) }
     var showLoadNewMissionDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var missionToRename by remember { mutableStateOf<String?>(null) }
+    var renameNewName by remember { mutableStateOf("") }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var missionToDelete by remember { mutableStateOf<String?>(null) }
 
     // Dialog state for loading/importing a new mission
     var missionName by remember { mutableStateOf("new_mission") }
@@ -308,7 +315,7 @@ fun MapScreen(
                                         viewModel.selectMission(missionId)
                                         showSelectMissionDialog = false
                                     }
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(
@@ -321,8 +328,36 @@ fun MapScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = missionId,
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                if (!viewModel.isBuiltInMission(missionId)) {
+                                    IconButton(
+                                        onClick = {
+                                            missionToRename = missionId
+                                            renameNewName = missionId
+                                            showRenameDialog = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Rename Mission",
+                                            tint = Color.White.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            missionToDelete = missionId
+                                            showDeleteConfirmDialog = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Mission",
+                                            tint = Color(0xFFFF6B6B).copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -330,6 +365,79 @@ fun MapScreen(
                 confirmButton = {
                     TextButton(onClick = { showSelectMissionDialog = false }) {
                         Text("Close")
+                    }
+                }
+            )
+        }
+
+        // Rename Mission Dialog
+        if (showRenameDialog && missionToRename != null) {
+            AlertDialog(
+                onDismissRequest = { showRenameDialog = false },
+                title = { Text("Rename Mission") },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = renameNewName,
+                            onValueChange = { renameNewName = it },
+                            label = { Text("New Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = renameNewName.isNotBlank() && renameNewName.trim() != missionToRename,
+                        onClick = {
+                            val res = viewModel.renameMission(missionToRename!!, renameNewName.trim())
+                            if (res.isSuccess) {
+                                Toast.makeText(context, "Mission renamed successfully", Toast.LENGTH_SHORT).show()
+                                showRenameDialog = false
+                            } else {
+                                val errorMsg = res.exceptionOrNull()?.message ?: "Unknown error"
+                                Toast.makeText(context, "Failed: $errorMsg", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    ) {
+                        Text("Rename")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRenameDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Delete Mission Dialog
+        if (showDeleteConfirmDialog && missionToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                title = { Text("Delete Mission") },
+                text = {
+                    Text("Are you sure you want to delete the mission \"$missionToDelete\"? This action cannot be undone.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val res = viewModel.deleteMission(missionToDelete!!)
+                            if (res.isSuccess) {
+                                Toast.makeText(context, "Mission deleted successfully", Toast.LENGTH_SHORT).show()
+                                showDeleteConfirmDialog = false
+                            } else {
+                                val errorMsg = res.exceptionOrNull()?.message ?: "Unknown error"
+                                Toast.makeText(context, "Failed: $errorMsg", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    ) {
+                        Text("Delete", color = Color(0xFFFF6B6B))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                        Text("Cancel")
                     }
                 }
             )
