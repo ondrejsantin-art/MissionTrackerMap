@@ -33,6 +33,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.min
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Path
+import com.example.missiontrackermap.math.CoordinateUtils
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,6 +120,7 @@ fun MapScreen(
     val gpsLocation by viewModel.gpsLocation.collectAsState()
     val isMapRotationEnabled by viewModel.isMapRotationEnabled.collectAsState()
     val deviceHeading by viewModel.deviceHeading.collectAsState()
+    val compassHeading by viewModel.compassHeading.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -224,6 +228,16 @@ fun MapScreen(
                     }
                 }
             }
+        }
+
+        // Overlay the Compass in the top-left corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(16.dp)
+        ) {
+            CompassWidget(heading = compassHeading)
         }
 
         // Overlay the Menu Button in the top-right corner
@@ -686,3 +700,69 @@ private fun ErrorOverlay(message: String) {
 }
 
 private data class ScaleItem(val label: String, val px: Float)
+
+@Composable
+private fun CompassWidget(
+    heading: Float,
+    modifier: Modifier = Modifier
+) {
+    val rotation = CoordinateUtils.calculateNeedleRotation(heading)
+
+    Box(
+        modifier = modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Canvas(modifier = Modifier.size(16.dp)) {
+                val r = size.minDimension / 2f
+                val center = Offset(r, r)
+
+                // Draw outer dial ring
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.3f),
+                    radius = r - 0.5.dp.toPx(),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                )
+
+                // Draw rotating needle
+                withTransform({
+                    rotate(rotation, pivot = center)
+                }) {
+                    // North arrow (red)
+                    val northPath = Path().apply {
+                        moveTo(center.x, center.y - r + 1.5.dp.toPx())
+                        lineTo(center.x - 2.5.dp.toPx(), center.y)
+                        lineTo(center.x + 2.5.dp.toPx(), center.y)
+                        close()
+                    }
+                    drawPath(path = northPath, color = Color.Red)
+
+                    // South arrow (white/gray)
+                    val southPath = Path().apply {
+                        moveTo(center.x, center.y + r - 1.5.dp.toPx())
+                        lineTo(center.x - 2.5.dp.toPx(), center.y)
+                        lineTo(center.x + 2.5.dp.toPx(), center.y)
+                        close()
+                    }
+                    drawPath(path = southPath, color = Color.White.copy(alpha = 0.6f))
+                }
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = "${heading.toInt()}°",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+

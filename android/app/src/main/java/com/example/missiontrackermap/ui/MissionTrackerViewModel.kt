@@ -89,6 +89,9 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
+    val compassHeading: StateFlow<Float> = orientationProvider.orientationFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
     // --- Computed dot position (Task F) ---
     // Combines calibration data + GPS position → pixel Offset on the image
     val dotPosition: StateFlow<Offset?> = combine(_calibration, _gpsLocation) { cal, gps ->
