@@ -37,6 +37,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.foundation.layout.Column
@@ -114,6 +115,8 @@ fun MapScreen(
     val availableMissions by viewModel.availableMissions.collectAsState()
     val isGpsOverridden by viewModel.isGpsOverridden.collectAsState()
     val gpsLocation by viewModel.gpsLocation.collectAsState()
+    val isMapRotationEnabled by viewModel.isMapRotationEnabled.collectAsState()
+    val deviceHeading by viewModel.deviceHeading.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -165,33 +168,59 @@ fun MapScreen(
                         imageWidth = calibration?.imageWidth?.toFloat() ?: mapBitmap!!.width.toFloat(),
                         imageHeight = calibration?.imageHeight?.toFloat() ?: mapBitmap!!.height.toFloat(),
                         dotPositionInImagePx = dotPosition,
-                        calibration = calibration
+                        calibration = calibration,
+                        deviceHeading = deviceHeading
                     )
 
-                    // Show GPS accuracy info in bottom-right corner
-                    Box(
+                    // Show GPS accuracy info and map rotation toggle in bottom-right corner
+                    Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .navigationBarsPadding()
-                            .padding(end = 16.dp, bottom = 24.dp)
-                            .background(
-                                color = Color.Black.copy(alpha = 0.6f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(end = 16.dp, bottom = 24.dp),
+                        horizontalAlignment = Alignment.End
                     ) {
-                        val accuracyText = when {
-                            isGpsOverridden -> "N/A"
-                            gpsLocation != null && gpsLocation?.accuracy != null -> {
-                                "+/-${gpsLocation?.accuracy?.toInt()}m"
-                            }
-                            else -> "--"
+                        // Map rotation toggle box (simple anchor small button)
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                )
+                                .clickable { viewModel.toggleMapRotation() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isMapRotationEnabled) "⚓ On" else "⚓ Off",
+                                color = if (isMapRotationEnabled) Color(0xFF64B5F6) else Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp
+                            )
                         }
-                        Text(
-                            text = "GPS: $accuracyText",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 12.sp
-                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // GPS accuracy box
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            val accuracyText = when {
+                                isGpsOverridden -> "N/A"
+                                gpsLocation != null && gpsLocation?.accuracy != null -> {
+                                    "+/-${gpsLocation?.accuracy?.toInt()}m"
+                                }
+                                else -> "--"
+                            }
+                            Text(
+                                text = "GPS: $accuracyText",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }
@@ -400,7 +429,8 @@ private fun MissionMapContent(
     imageWidth: Float,
     imageHeight: Float,
     dotPositionInImagePx: Offset?,
-    calibration: CalibrationData?
+    calibration: CalibrationData?,
+    deviceHeading: Float
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val canvasWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
@@ -442,17 +472,32 @@ private fun MissionMapContent(
         var zoomScale by remember { mutableStateOf(1f) }
         var zoomOffset by remember { mutableStateOf(Offset.Zero) }
 
+        val currentHeading = rememberUpdatedState(deviceHeading)
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         zoomScale = (zoomScale * zoom).coerceIn(1f, 5f)
-                        zoomOffset = if (zoomScale == 1f) Offset.Zero else zoomOffset + pan
+                        val heading = currentHeading.value
+                        val rotatedPan = if (heading != 0f) {
+                            val rad = (heading * kotlin.math.PI / 180.0).toFloat()
+                            val cosVal = kotlin.math.cos(rad)
+                            val sinVal = kotlin.math.sin(rad)
+                            Offset(
+                                x = pan.x * cosVal - pan.y * sinVal,
+                                y = pan.x * sinVal + pan.y * cosVal
+                            )
+                        } else {
+                            pan
+                        }
+                        zoomOffset = if (zoomScale == 1f) Offset.Zero else zoomOffset + rotatedPan
                     }
                 }
         ) {
             withTransform({
+                rotate(-deviceHeading, pivot = center)
                 translate(zoomOffset.x, zoomOffset.y)
                 scale(zoomScale, zoomScale, pivot = center)
             }) {

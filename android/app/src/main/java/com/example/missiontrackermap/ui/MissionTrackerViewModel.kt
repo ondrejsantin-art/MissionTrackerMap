@@ -14,7 +14,11 @@ import com.example.missiontrackermap.math.CoordinateTransformer
 import com.example.missiontrackermap.model.CalibrationData
 import com.example.missiontrackermap.model.GpsCoordinate
 import com.example.missiontrackermap.repository.MissionTrackerRepository
+import com.example.missiontrackermap.sensor.OrientationProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +44,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
     private val repository = MissionTrackerRepository(application)
     private val locationProvider = FusedLocationProvider(application)
+    private val orientationProvider = OrientationProvider(application)
 
     // --- Mission state ---
     private val _mapBitmap = MutableStateFlow<ImageBitmap?>(null)
@@ -66,6 +71,23 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     fun toggleGpsOverride() {
         locationProvider.isOverrideEnabled.value = !locationProvider.isOverrideEnabled.value
     }
+
+    // --- Map rotation state ---
+    private val _isMapRotationEnabled = MutableStateFlow(false)
+    val isMapRotationEnabled: StateFlow<Boolean> = _isMapRotationEnabled
+
+    fun toggleMapRotation() {
+        _isMapRotationEnabled.value = !_isMapRotationEnabled.value
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val deviceHeading: StateFlow<Float> = _isMapRotationEnabled.flatMapLatest { enabled ->
+        if (enabled) {
+            orientationProvider.orientationFlow()
+        } else {
+            flowOf(0f)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
     // --- Computed dot position (Task F) ---
     // Combines calibration data + GPS position → pixel Offset on the image
