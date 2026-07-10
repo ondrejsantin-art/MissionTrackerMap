@@ -70,6 +70,7 @@ class MissionFileHelperTest {
     fun renameMission_blankName_fails() {
         val result = helper.renameMission("some_mission", "   ")
         assertTrue(result.isFailure)
+        assertEquals("New name cannot be blank", result.exceptionOrNull()?.message)
     }
 
     @Test
@@ -88,6 +89,7 @@ class MissionFileHelperTest {
 
         val result = helper.renameMission(name1, name2)
         assertTrue(result.isFailure)
+        assertEquals("A mission with this name already exists", result.exceptionOrNull()?.message)
     }
 
     @Test

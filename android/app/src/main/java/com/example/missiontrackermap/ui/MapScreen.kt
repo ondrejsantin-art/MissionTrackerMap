@@ -372,6 +372,7 @@ fun MapScreen(
 
         // Rename Mission Dialog
         if (showRenameDialog && missionToRename != null) {
+            val isRenameNameAlreadyExists = availableMissions.contains(renameNewName.trim()) && renameNewName.trim() != missionToRename
             AlertDialog(
                 onDismissRequest = { showRenameDialog = false },
                 title = { Text("Rename Mission") },
@@ -382,13 +383,19 @@ fun MapScreen(
                             onValueChange = { renameNewName = it },
                             label = { Text("New Name") },
                             singleLine = true,
+                            isError = isRenameNameAlreadyExists,
+                            supportingText = {
+                                if (isRenameNameAlreadyExists) {
+                                    Text("A mission with this name already exists")
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
                 confirmButton = {
                     TextButton(
-                        enabled = renameNewName.isNotBlank() && renameNewName.trim() != missionToRename,
+                        enabled = renameNewName.isNotBlank() && renameNewName.trim() != missionToRename && !isRenameNameAlreadyExists,
                         onClick = {
                             val res = viewModel.renameMission(missionToRename!!, renameNewName.trim())
                             if (res.isSuccess) {
@@ -445,6 +452,7 @@ fun MapScreen(
 
         // Load New Mission Dialog
         if (showLoadNewMissionDialog) {
+            val isNameAlreadyExists = availableMissions.contains(missionName.trim())
             AlertDialog(
                 onDismissRequest = { showLoadNewMissionDialog = false },
                 title = { Text("Load New Mission") },
@@ -455,6 +463,12 @@ fun MapScreen(
                             onValueChange = { missionName = it },
                             label = { Text("Mission Name") },
                             singleLine = true,
+                            isError = isNameAlreadyExists,
+                            supportingText = {
+                                if (isNameAlreadyExists) {
+                                    Text("A mission with this name already exists")
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -495,7 +509,7 @@ fun MapScreen(
                 },
                 confirmButton = {
                     TextButton(
-                        enabled = missionName.isNotBlank() && selectedImageUri != null && selectedJsonUri != null,
+                        enabled = missionName.isNotBlank() && !isNameAlreadyExists && selectedImageUri != null && selectedJsonUri != null,
                         onClick = {
                             val imgUri = selectedImageUri!!
                             val jsUri = selectedJsonUri!!

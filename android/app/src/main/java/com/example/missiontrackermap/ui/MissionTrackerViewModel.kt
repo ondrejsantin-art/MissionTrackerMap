@@ -126,6 +126,13 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         return try {
             val context = getApplication<Application>()
 
+            if (missionName.isBlank()) {
+                return Result.failure(Exception("Mission name cannot be blank"))
+            }
+            if (isBuiltInMission(missionName)) {
+                return Result.failure(Exception("A built-in mission with this name already exists"))
+            }
+
             // 1. Read JSON file content
             val jsonContent = context.contentResolver.openInputStream(jsonUri)?.use { input ->
                 input.bufferedReader().readText()
@@ -146,7 +153,10 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
             // 3. Create destination directory
             val missionsDir = File(context.filesDir, "missions")
             val missionDir = File(missionsDir, missionName)
-            if (!missionDir.exists() && !missionDir.mkdirs()) {
+            if (missionDir.exists()) {
+                return Result.failure(Exception("A mission with this name already exists"))
+            }
+            if (!missionDir.mkdirs()) {
                 return Result.failure(Exception("Failed to create mission directory"))
             }
 
