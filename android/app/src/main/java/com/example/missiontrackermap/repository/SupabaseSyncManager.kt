@@ -20,20 +20,22 @@ private const val TAG = "SupabaseSyncManager"
 private const val MISSIONS_ROOT = "missions"
 
 @Serializable
-private data class SupabaseMissionVersion(
+internal data class SupabaseMissionVersion(
     val id: String,
     val version: Int
 )
 
 @Serializable
-private data class SupabaseMissionDetail(
+internal data class SupabaseMissionDetail(
     val version: Int,
     val json_data: JsonObject
 )
 
-class SupabaseSyncManager(private val context: Context) {
+class SupabaseSyncManager(
+    private val context: Context,
+    private val client: OkHttpClient = OkHttpClient()
+) {
 
-    private val client = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
@@ -127,22 +129,40 @@ class SupabaseSyncManager(private val context: Context) {
             ?: throw IOException("Mission JSON missing 'image' field")
 
         // 3. Download the map image
+        val imageFile = File(localMissionDir, imageName)
+        val etagFile = File(localMissionDir, "$imageName.etag")
+        val cachedEtag = if (etagFile.exists() && imageFile.exists()) etagFile.readText().trim() else null
+
         val imageUrl = "${SupabaseConfig.URL}/storage/v1/object/public/mission-images/$missionId/$imageName"
         val imageRequest = Request.Builder()
             .url(imageUrl)
             .addHeader("apikey", SupabaseConfig.ANON_KEY)
             .addHeader("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
+            .apply {
+                if (cachedEtag != null) {
+                    addHeader("If-None-Match", cachedEtag)
+                }
+            }
             .build()
 
         client.newCall(imageRequest).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Failed to download image '$imageName': HTTP ${response.code}")
-            val bytes = response.body?.bytes() ?: throw IOException("Image response body is null")
-            
-            val imageFile = File(localMissionDir, imageName)
-            FileOutputStream(imageFile).use { fos ->
-                fos.write(bytes)
+            if (response.code == 304) {
+                Log.i(TAG, "Image '$imageName' is up-to-date (304 Not Modified). Skipping download.")
+            } else {
+                if (!response.isSuccessful) throw IOException("Failed to download image '$imageName': HTTP ${response.code}")
+                val bytes = response.body?.bytes() ?: throw IOException("Image response body is null")
+                
+                FileOutputStream(imageFile).use { fos ->
+                    fos.write(bytes)
+                }
+                val newEtag = response.header("ETag")
+                if (newEtag != null) {
+                    etagFile.writeText(newEtag)
+                } else {
+                    etagFile.delete()
+                }
+                Log.d(TAG, "Successfully downloaded image '$imageName' to ${imageFile.absolutePath}")
             }
-            Log.d(TAG, "Successfully downloaded image '$imageName' to ${imageFile.absolutePath}")
         }
 
         // 4. Save JSON only after image succeeds to prevent partial corrupt states

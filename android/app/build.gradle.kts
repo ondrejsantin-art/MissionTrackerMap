@@ -42,6 +42,10 @@ android {
     configurations.all {
         resolutionStrategy.force("androidx.core:core-ktx:1.15.0")
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
