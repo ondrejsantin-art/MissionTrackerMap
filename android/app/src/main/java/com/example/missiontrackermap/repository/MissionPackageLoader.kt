@@ -32,14 +32,11 @@ class MissionPackageLoader(private val context: Context) {
     fun load(missionId: String): MissionState? {
         return try {
             val localMissionDir = java.io.File(java.io.File(context.filesDir, MISSIONS_ROOT), missionId)
+            val calibrationFile = java.io.File(localMissionDir, "$missionId.json")
             val calibration: CalibrationData
             val imageBytes: ByteArray
 
-            if (localMissionDir.exists() && localMissionDir.isDirectory) {
-                val calibrationFile = java.io.File(localMissionDir, "$missionId.json")
-                if (!calibrationFile.exists()) {
-                    throw java.io.FileNotFoundException("Calibration file not found at ${calibrationFile.absolutePath}")
-                }
+            if (localMissionDir.exists() && localMissionDir.isDirectory && calibrationFile.exists()) {
                 val rawJson = calibrationFile.readText()
                 calibration = json.decodeFromString<CalibrationData>(rawJson)
 
@@ -85,7 +82,9 @@ class MissionPackageLoader(private val context: Context) {
         val localMissions = try {
             val missionsDir = java.io.File(context.filesDir, MISSIONS_ROOT)
             if (missionsDir.exists() && missionsDir.isDirectory) {
-                missionsDir.list()?.toList() ?: emptyList()
+                missionsDir.listFiles()?.filter { dir ->
+                    dir.isDirectory && java.io.File(dir, "${dir.name}.json").exists()
+                }?.map { it.name } ?: emptyList()
             } else {
                 emptyList()
             }
