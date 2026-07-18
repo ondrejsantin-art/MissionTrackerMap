@@ -68,6 +68,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import android.provider.OpenableColumns
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.example.missiontrackermap.model.CalibrationPoint
 import com.example.missiontrackermap.math.ScaleCalculator
 import com.example.missiontrackermap.model.CalibrationData
 import com.example.missiontrackermap.math.AffineTransformer
@@ -123,6 +126,7 @@ fun MapScreen(
     val isMapRotationEnabled by viewModel.isMapRotationEnabled.collectAsState()
     val deviceHeading by viewModel.deviceHeading.collectAsState()
     val compassHeading by viewModel.compassHeading.collectAsState()
+    val completedPoints by viewModel.completedPoints.collectAsState()
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -133,6 +137,8 @@ fun MapScreen(
     var renameNewName by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var missionToDelete by remember { mutableStateOf<String?>(null) }
+    var showResetMissionDialog by remember { mutableStateOf(false) }
+    var tappedMissionPoint by remember { mutableStateOf<CalibrationPoint?>(null) }
 
     // Dialog state for loading/importing a new mission
     var missionName by remember { mutableStateOf("new_mission") }
@@ -174,13 +180,20 @@ fun MapScreen(
             else -> {
                 Box(modifier = Modifier.fillMaxSize()) {
                     // Map + dot
+                    val missionPoints = calibration?.points
+                        ?.filter { !it.missionObjective.isNullOrBlank() }
+                        ?: emptyList()
+
                     MissionMapContent(
                         bitmap = mapBitmap!!,
                         imageWidth = calibration?.imageWidth?.toFloat() ?: mapBitmap!!.width.toFloat(),
                         imageHeight = calibration?.imageHeight?.toFloat() ?: mapBitmap!!.height.toFloat(),
                         dotPositionInImagePx = dotPosition,
                         calibration = calibration,
-                        deviceHeading = deviceHeading
+                        deviceHeading = deviceHeading,
+                        missionPoints = missionPoints,
+                        completedPoints = completedPoints,
+                        onMissionPointTapped = { point -> tappedMissionPoint = point }
                     )
 
                     // Show GPS accuracy info and map rotation toggle in bottom-right corner
@@ -288,6 +301,13 @@ fun MapScreen(
                     onClick = {
                         menuExpanded = false
                         viewModel.toggleGpsOverride()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Reset Mission") },
+                    onClick = {
+                        menuExpanded = false
+                        showResetMissionDialog = true
                     }
                 )
                 DropdownMenuItem(
@@ -556,6 +576,52 @@ fun MapScreen(
                 }
             )
         }
+        // Reset Mission confirmation dialog
+        if (showResetMissionDialog) {
+            AlertDialog(
+                onDismissRequest = { showResetMissionDialog = false },
+                title = { Text("Reset Mission") },
+                text = { Text("Mark all mission objectives as incomplete?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.resetMission()
+                        showResetMissionDialog = false
+                    }) {
+                        Text("Reset", color = Color(0xFFFF6B6B))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetMissionDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Mission point detail dialog
+        tappedMissionPoint?.let { point ->
+            val isCompleted = point.name in completedPoints
+            AlertDialog(
+                onDismissRequest = { tappedMissionPoint = null },
+                title = { Text(point.name) },
+                text = {
+                    Text(point.missionObjective ?: "No mission objective")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.toggleMissionPoint(point.name)
+                        tappedMissionPoint = null
+                    }) {
+                        Text(if (isCompleted) "Mark Incomplete" else "Mark Complete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { tappedMissionPoint = null }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -566,7 +632,10 @@ private fun MissionMapContent(
     imageHeight: Float,
     dotPositionInImagePx: Offset?,
     calibration: CalibrationData?,
-    deviceHeading: Float
+    deviceHeading: Float,
+    missionPoints: List<CalibrationPoint> = emptyList(),
+    completedPoints: Set<String> = emptySet(),
+    onMissionPointTapped: (CalibrationPoint) -> Unit = {}
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val canvasWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
@@ -610,6 +679,15 @@ private fun MissionMapContent(
 
         val currentHeading = rememberUpdatedState(deviceHeading)
 
+        // Pre-compute screen coords for mission points so they can be shared by drawing and tap-detection.
+        // This must be a remembered value to avoid allocations every recomposition.
+        val missionPointScreenCoords = remember(missionPoints, offsetX, offsetY, fitScale) {
+            missionPoints.map { pt ->
+                Offset(offsetX + pt.pixel.x.toFloat() * fitScale,
+                       offsetY + pt.pixel.y.toFloat() * fitScale)
+            }
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -629,6 +707,20 @@ private fun MissionMapContent(
                             pan
                         }
                         zoomOffset = if (zoomScale == 1f) Offset.Zero else zoomOffset + rotatedPan
+                    }
+                }
+                .pointerInput(missionPoints) {
+                    detectTapGestures { tapOffset ->
+                        val touchRadius = 40f
+                        val hit = missionPoints.indices.firstOrNull { i ->
+                            val sc = missionPointScreenCoords[i]
+                            val dx = tapOffset.x - sc.x
+                            val dy = tapOffset.y - sc.y
+                            (dx * dx + dy * dy) <= touchRadius * touchRadius
+                        }
+                        if (hit != null) {
+                            onMissionPointTapped(missionPoints[hit])
+                        }
                     }
                 }
         ) {
@@ -660,6 +752,13 @@ private fun MissionMapContent(
                             alpha = dotAlpha
                         )
                     }
+                }
+
+                // --- Draw mission point indicators ---
+                missionPoints.forEachIndexed { i, pt ->
+                    val sc = missionPointScreenCoords[i]
+                    val isCompleted = pt.name in completedPoints
+                    drawMissionPoint(center = sc, completed = isCompleted)
                 }
             }
         }
@@ -790,6 +889,47 @@ private fun DrawScope.drawGpsDot(center: Offset, radius: Float, alpha: Float) {
         radius = radius * 0.35f,
         center = center
     )
+}
+
+/**
+ * Draws a mission-point indicator.
+ * Incomplete: orange filled circle with white ring.
+ * Completed: green filled circle with white ✓ path.
+ */
+private fun DrawScope.drawMissionPoint(center: Offset, completed: Boolean) {
+    val r = 14f
+    val fillColor = if (completed) Color(0xFF4CAF50) else Color(0xFFFF9800)
+
+    // Outer white ring for contrast on any map background
+    drawCircle(
+        color = Color.White.copy(alpha = 0.85f),
+        radius = r + 3f,
+        center = center
+    )
+    // Filled indicator
+    drawCircle(
+        color = fillColor,
+        radius = r,
+        center = center
+    )
+
+    if (completed) {
+        // Draw ✓ checkmark
+        val checkPath = Path().apply {
+            moveTo(center.x - r * 0.45f, center.y)
+            lineTo(center.x - r * 0.1f, center.y + r * 0.4f)
+            lineTo(center.x + r * 0.5f, center.y - r * 0.35f)
+        }
+        drawPath(
+            path = checkPath,
+            color = Color.White,
+            style = Stroke(
+                width = 2.5f,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
+    }
 }
 
 @Composable

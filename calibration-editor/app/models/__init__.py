@@ -18,6 +18,8 @@ class CalibrationPoint(BaseModel):
 
     gps: GpsPoint
 
+    missionObjective: str | None = None
+
 
 class CalibrationPointDraft(BaseModel):
     name: str = ""

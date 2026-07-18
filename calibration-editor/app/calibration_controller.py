@@ -44,13 +44,16 @@ class CalibrationController:
         pixel_y: int,
         gps_text: str,
         name: str = "",
+        mission_objective: str | None = None,
     ) -> CalibrationPoint:
         parsed_gps = parse_gps(gps_text)
         point_name = name.strip() or self.next_default_name()
+        objective = mission_objective.strip() if mission_objective else None
         point = CalibrationPoint(
             name=point_name,
             pixel=PixelPoint(x=pixel_x, y=pixel_y),
             gps=parsed_gps,
+            missionObjective=objective or None,
         )
         self._calibration.points.append(point)
         return point
@@ -63,6 +66,7 @@ class CalibrationController:
         pixel_y: int,
         gps_text: str,
         name: str = "",
+        mission_objective: str | None = None,
     ) -> CalibrationPoint:
         if not 0 <= index < len(self._calibration.points):
             raise IndexError("Calibration point index out of range")
@@ -72,6 +76,8 @@ class CalibrationController:
         point.name = name.strip() or self.next_default_name()
         point.pixel = PixelPoint(x=pixel_x, y=pixel_y)
         point.gps = parsed_gps
+        objective = mission_objective.strip() if mission_objective else None
+        point.missionObjective = objective or None
         return point
 
     def delete_point(self, index: int) -> None:

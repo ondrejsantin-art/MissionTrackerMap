@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -150,6 +151,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Name"))
         layout.addWidget(self._name_edit)
 
+        layout.addWidget(QLabel("Mission Objective (optional)"))
+        self._mission_objective_edit = QTextEdit()
+        self._mission_objective_edit.setPlaceholderText("No mission objective")
+        self._mission_objective_edit.setFixedHeight(72)
+        layout.addWidget(self._mission_objective_edit)
+
         self._add_point_button = QPushButton("Add Point")
         self._add_point_button.clicked.connect(self.onAddPointClicked)
         layout.addWidget(self._add_point_button)
@@ -235,6 +242,7 @@ class MainWindow(QMainWindow):
             pixel_y=int(self._pixel_y_edit.text()),
             gps_text=gps_text,
             name=point_name,
+            mission_objective=self._mission_objective_edit.toPlainText().strip() or None,
         )
         self.imageView.clear_pending_marker()
         self._refresh_points_list()
@@ -243,6 +251,7 @@ class MainWindow(QMainWindow):
         self._gps_edit.clear()
         self._name_edit.clear()
         self._name_edit.setText(self._default_point_name())
+        self._mission_objective_edit.clear()
 
     def onUpdatePointClicked(self) -> None:
         selected_items = self._points_list.selectedItems()
@@ -277,6 +286,7 @@ class MainWindow(QMainWindow):
             pixel_y=int(self._pixel_y_edit.text()),
             gps_text=gps_text,
             name=point_name,
+            mission_objective=self._mission_objective_edit.toPlainText().strip() or None,
         )
         self._refresh_points_list()
         self._refresh_point_markers()
@@ -327,6 +337,7 @@ class MainWindow(QMainWindow):
         self._gps_edit.setText(self._gps_text_for_point(point))
         self._pixel_x_edit.setText(str(point.pixel.x))
         self._pixel_y_edit.setText(str(point.pixel.y))
+        self._mission_objective_edit.setPlainText(point.missionObjective or "")
         self._update_point_button.setEnabled(True)
         self._delete_point_button.setEnabled(True)
         self._refresh_point_markers()
@@ -382,6 +393,7 @@ class MainWindow(QMainWindow):
         self._gps_edit.clear()
         self._name_edit.clear()
         self._name_edit.setText(self._default_point_name())
+        self._mission_objective_edit.clear()
         self._pixel_x_edit.setText("0")
         self._pixel_y_edit.setText("0")
         self._update_point_button.setEnabled(False)
@@ -476,6 +488,7 @@ class MainWindow(QMainWindow):
             self._gps_edit.setText(self._gps_text_for_point(point))
             self._pixel_x_edit.setText(str(point.pixel.x))
             self._pixel_y_edit.setText(str(point.pixel.y))
+            self._mission_objective_edit.setPlainText(point.missionObjective or "")
             self._update_point_button.setEnabled(True)
             self._delete_point_button.setEnabled(True)
         else:

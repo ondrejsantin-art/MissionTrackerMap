@@ -13,6 +13,7 @@ import com.example.missiontrackermap.math.AffineTransformer
 import com.example.missiontrackermap.math.CoordinateTransformer
 import com.example.missiontrackermap.model.CalibrationData
 import com.example.missiontrackermap.model.GpsCoordinate
+import com.example.missiontrackermap.model.MissionProgress
 import com.example.missiontrackermap.repository.MissionTrackerRepository
 import com.example.missiontrackermap.repository.MissionFileHelper
 import com.example.missiontrackermap.sensor.OrientationProvider
@@ -62,6 +63,29 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
     private val _availableMissions = MutableStateFlow<List<String>>(emptyList())
     val availableMissions: StateFlow<List<String>> = _availableMissions
+
+    // --- Mission progress ---
+    private val _completedPoints = MutableStateFlow<Set<String>>(emptySet())
+    val completedPoints: StateFlow<Set<String>> = _completedPoints
+
+    fun toggleMissionPoint(pointName: String) {
+        val current = _completedPoints.value
+        _completedPoints.value = if (pointName in current) {
+            current - pointName
+        } else {
+            current + pointName
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveProgress(_currentMissionId.value, MissionProgress(_completedPoints.value))
+        }
+    }
+
+    fun resetMission() {
+        _completedPoints.value = emptySet()
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearProgress(_currentMissionId.value)
+        }
+    }
 
     // --- GPS state ---
     private val _gpsLocation = MutableStateFlow<GpsCoordinate?>(null)
@@ -213,6 +237,10 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
             _mapBitmap.value = bitmap
             _calibration.value = mission.calibration
             _currentMissionId.value = missionId
+
+            // Load persisted progress for this mission
+            val progress = repository.loadProgress(missionId)
+            _completedPoints.value = progress.completedPoints
 
             Log.i(TAG, "Mission '${mission.missionId}' ready: " +
                     "${mission.calibration.imageWidth}x${mission.calibration.imageHeight}px, " +

@@ -19,7 +19,8 @@ data class GpsCoordinate(
 data class CalibrationPoint(
     val name: String,
     val pixel: PixelCoordinate,
-    val gps: GpsCoordinate
+    val gps: GpsCoordinate,
+    val missionObjective: String? = null
 )
 
 @Serializable
