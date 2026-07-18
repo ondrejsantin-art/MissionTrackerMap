@@ -4,6 +4,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QAction, QColor, QBrush
 
 from PySide6.QtWidgets import (
+    QDialog,
     QDockWidget,
     QFileDialog,
     QLabel,
