@@ -280,7 +280,13 @@ fun MapScreen(
                 .statusBarsPadding()
                 .padding(16.dp)
         ) {
-            IconButton(onClick = { menuExpanded = true }) {
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.background(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                )
+            ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "Menu",
