@@ -16,6 +16,7 @@ import com.example.missiontrackermap.model.GpsCoordinate
 import com.example.missiontrackermap.model.MissionProgress
 import com.example.missiontrackermap.repository.MissionTrackerRepository
 import com.example.missiontrackermap.repository.MissionFileHelper
+import com.example.missiontrackermap.repository.SupabaseSyncManager
 import com.example.missiontrackermap.sensor.OrientationProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,6 +64,15 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
     private val _availableMissions = MutableStateFlow<List<String>>(emptyList())
     val availableMissions: StateFlow<List<String>> = _availableMissions
+
+    private val _syncStatus = MutableStateFlow<String>("Idle")
+    val syncStatus: StateFlow<String> = _syncStatus
+
+    private val _remoteMissions = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val remoteMissions: StateFlow<Map<String, Int>> = _remoteMissions
+
+    private val _localVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val localVersions: StateFlow<Map<String, Int>> = _localVersions
 
     // --- Mission progress ---
     private val _completedPoints = MutableStateFlow<Set<String>>(emptySet())
@@ -136,10 +146,70 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     init {
         refreshMissions()
         loadMission("scarif")
+        syncMissions()
+    }
+
+    fun syncMissions() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _syncStatus.value = "Syncing"
+            val syncManager = SupabaseSyncManager(getApplication())
+            val remoteMap = try {
+                syncManager.fetchRemoteMissions()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch remote list", e)
+                emptyMap()
+            }
+            _remoteMissions.value = remoteMap
+
+            val success = syncManager.sync()
+            if (success) {
+                _syncStatus.value = "Success"
+                refreshMissions()
+                loadMission(_currentMissionId.value)
+            } else {
+                _syncStatus.value = "Error"
+            }
+        }
+    }
+
+    fun syncSingleMission(missionId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _syncStatus.value = "Syncing $missionId"
+            val syncManager = SupabaseSyncManager(getApplication())
+            val success = try {
+                syncManager.downloadMission(missionId)
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to download $missionId", e)
+                false
+            }
+            if (success) {
+                _syncStatus.value = "Success"
+                refreshMissions()
+                val remoteMap = try {
+                    syncManager.fetchRemoteMissions()
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+                _remoteMissions.value = remoteMap
+
+                if (_currentMissionId.value == missionId) {
+                    loadMission(missionId)
+                }
+            } else {
+                _syncStatus.value = "Error syncing $missionId"
+            }
+        }
+    }
+
+    fun getLocalMissionVersion(missionId: String): Int {
+        return repository.getMissionVersion(missionId)
     }
 
     fun refreshMissions() {
-        _availableMissions.value = repository.availableMissions()
+        val list = repository.availableMissions()
+        _availableMissions.value = list
+        _localVersions.value = list.associateWith { repository.getMissionVersion(it) }
     }
 
     fun selectMission(missionId: String) {

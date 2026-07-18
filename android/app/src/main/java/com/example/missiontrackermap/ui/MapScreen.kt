@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -121,6 +123,9 @@ fun MapScreen(
     val loadError by viewModel.loadError.collectAsState()
     val currentMissionId by viewModel.currentMissionId.collectAsState()
     val availableMissions by viewModel.availableMissions.collectAsState()
+    val localVersions by viewModel.localVersions.collectAsState()
+    val remoteMissions by viewModel.remoteMissions.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
     val isGpsOverridden by viewModel.isGpsOverridden.collectAsState()
     val gpsLocation by viewModel.gpsLocation.collectAsState()
     val isMapRotationEnabled by viewModel.isMapRotationEnabled.collectAsState()
@@ -139,6 +144,14 @@ fun MapScreen(
     var missionToDelete by remember { mutableStateOf<String?>(null) }
     var showResetMissionDialog by remember { mutableStateOf(false) }
     var tappedMissionPoint by remember { mutableStateOf<CalibrationPoint?>(null) }
+
+    LaunchedEffect(syncStatus) {
+        if (syncStatus != "Idle" && !syncStatus.startsWith("Success")) {
+            Toast.makeText(context, syncStatus, Toast.LENGTH_SHORT).show()
+        } else if (syncStatus == "Success") {
+            Toast.makeText(context, "Sync complete!", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Dialog state for loading/importing a new mission
     var missionName by remember { mutableStateOf("new_mission") }
@@ -326,12 +339,21 @@ fun MapScreen(
                 onDismissRequest = { showSelectMissionDialog = false },
                 title = { Text("Select Mission") },
                 text = {
+                    val allMissions = (availableMissions + remoteMissions.keys).distinct().sorted()
                     LazyColumn {
-                        items(availableMissions) { missionId ->
+                        items(allMissions) { missionId ->
+                            val isLocal = availableMissions.contains(missionId)
+                            val isRemote = remoteMissions.containsKey(missionId)
+                            val localVersion = if (isLocal) localVersions[missionId] ?: 0 else 0
+                            val remoteVersion = remoteMissions[missionId] ?: 0
+
+                            val hasUpdate = isLocal && isRemote && remoteVersion > localVersion
+                            val notDownloaded = !isLocal && isRemote
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .clickable(enabled = isLocal) {
                                         viewModel.selectMission(missionId)
                                         showSelectMissionDialog = false
                                     }
@@ -339,19 +361,49 @@ fun MapScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(
-                                    selected = (missionId == currentMissionId),
+                                    selected = (missionId == currentMissionId && isLocal),
+                                    enabled = isLocal,
                                     onClick = {
                                         viewModel.selectMission(missionId)
                                         showSelectMissionDialog = false
                                     }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = missionId,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (!viewModel.isBuiltInMission(missionId)) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = missionId,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (isLocal) Color.Unspecified else Color.Gray
+                                    )
+                                    val versionInfo = when {
+                                        notDownloaded -> "Not Synced (Remote v$remoteVersion)"
+                                        hasUpdate -> "Update Available (Local v$localVersion -> Remote v$remoteVersion)"
+                                        isLocal && isRemote -> "Synced (v$localVersion)"
+                                        isLocal -> "Local Only (v$localVersion)"
+                                        else -> ""
+                                    }
+                                    if (versionInfo.isNotEmpty()) {
+                                        Text(
+                                            text = versionInfo,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (hasUpdate || notDownloaded) MaterialTheme.colorScheme.primary else Color.Gray
+                                        )
+                                    }
+                                }
+                                if (notDownloaded || hasUpdate) {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.syncSingleMission(missionId)
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = "Sync Mission",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                if (isLocal && !viewModel.isBuiltInMission(missionId)) {
                                     IconButton(
                                         onClick = {
                                             missionToRename = missionId

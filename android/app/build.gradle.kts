@@ -62,6 +62,9 @@ dependencies {
     // JSON parsing
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
+    // Network
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // GPS / Location
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
