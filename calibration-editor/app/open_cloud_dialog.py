@@ -44,6 +44,11 @@ class DownloadMissionWorker(QThread):
             if not image_name:
                 raise ValueError("JSON data missing 'image' field")
 
+            # Update the JSON version to match the database version
+            db_version = detail.get("version")
+            if db_version is not None:
+                json_data["version"] = db_version
+
             # Download Image
             image_path = os.path.join(self.target_dir, image_name)
             self.client.download_image(self.mission_id, image_name, image_path)
@@ -51,7 +56,7 @@ class DownloadMissionWorker(QThread):
             # Save JSON
             json_path = os.path.join(self.target_dir, f"{self.mission_id}.json")
             with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(json_data, f, indent=4)
+                json.dump(json_data, f, indent=4, ensure_ascii=False)
 
             self.finished_signal.emit(True, json_path, "")
         except Exception as e:
