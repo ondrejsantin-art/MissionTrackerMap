@@ -206,10 +206,22 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         return repository.getMissionVersion(missionId)
     }
 
-    fun refreshMissions() {
+    fun refreshMissions(fetchRemote: Boolean = false) {
         val list = repository.availableMissions()
         _availableMissions.value = list
         _localVersions.value = list.associateWith { repository.getMissionVersion(it) }
+
+        if (fetchRemote) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val syncManager = SupabaseSyncManager(getApplication())
+                try {
+                    val remoteMap = syncManager.fetchRemoteMissions()
+                    _remoteMissions.value = remoteMap
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to check actual remote versions: ${e.message}", e)
+                }
+            }
+        }
     }
 
     fun selectMission(missionId: String) {

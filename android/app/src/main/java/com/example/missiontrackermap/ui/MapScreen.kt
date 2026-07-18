@@ -295,7 +295,7 @@ fun MapScreen(
                     text = { Text("Select Mission") },
                     onClick = {
                         menuExpanded = false
-                        viewModel.refreshMissions()
+                        viewModel.refreshMissions(fetchRemote = true)
                         showSelectMissionDialog = true
                     }
                 )
