@@ -47,3 +47,15 @@ jobs:
         run: |
           cd calibration-editor
           ./run.sh
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MissionTrackerMap-debug-apk
+          path: android/app/build/outputs/apk/debug/MissionTrackerMap-debug.apk
+
+      - name: Upload Calibration Editor Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-editor
+          path: calibration-editor/
