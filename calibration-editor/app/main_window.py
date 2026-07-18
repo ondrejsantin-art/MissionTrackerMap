@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
 
 from app.calibration_controller import CalibrationController
 from app.calibration_io import load as load_calibration, save as save_calibration
+from app.publish_dialog import PublishDialog
+from app.open_cloud_dialog import OpenCloudDialog
 from app.gps_parser import GpsParseError, parse_gps
 from app.image_view import ImageView
 
@@ -103,6 +105,16 @@ class MainWindow(QMainWindow):
         saveAsAction = QAction("Save Calibration As", self)
         saveAsAction.triggered.connect(self.onSaveCalibrationAsTriggered)
         fileMenu.addAction(saveAsAction)
+
+        fileMenu.addSeparator()
+
+        openCloudAction = QAction("Open from Cloud...", self)
+        openCloudAction.triggered.connect(self.onOpenCloudTriggered)
+        fileMenu.addAction(openCloudAction)
+
+        publishAction = QAction("Publish to Cloud...", self)
+        publishAction.triggered.connect(self.onPublishCloudTriggered)
+        fileMenu.addAction(publishAction)
 
         viewMenu = self.menuBar().addMenu("&View")
 
@@ -547,3 +559,26 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(
             f"MissionTracker Calibration Editor   ({zoom:.0f}%)"
         )
+
+    def onOpenCloudTriggered(self) -> None:
+        dialog = OpenCloudDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.downloaded_json_path:
+            self._open_calibration(dialog.downloaded_json_path)
+
+    def onPublishCloudTriggered(self) -> None:
+        if not self._controller.calibration.image:
+            QMessageBox.warning(self, "No Image", "You must open an image first.")
+            return
+
+        if not self._controller.points:
+            QMessageBox.warning(self, "No Points", "You must have at least one calibration point.")
+            return
+
+        calibration_json = self._controller.calibration.model_dump_json()
+        image_path = self.imageView._image_path
+        if not image_path:
+            QMessageBox.warning(self, "Image Error", "Current image path not found.")
+            return
+
+        dialog = PublishDialog(str(image_path), calibration_json, self)
+        dialog.exec()

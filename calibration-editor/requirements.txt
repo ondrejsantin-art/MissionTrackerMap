@@ -1,3 +1,5 @@
 PySide6>=6.8
 pydantic>=2.10
 pytest
+requests>=2.31
+keyring>=24.0.0
