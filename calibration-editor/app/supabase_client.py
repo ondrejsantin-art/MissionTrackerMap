@@ -134,6 +134,8 @@ class SupabaseClient:
             "version": version,
             "json_data": json.loads(calibration_json)
         }
+        if self._user_id:
+            data["owner_id"] = self._user_id
 
         response = requests.post(url, headers=headers, json=data)
         if not response.ok:
