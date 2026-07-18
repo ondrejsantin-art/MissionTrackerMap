@@ -563,7 +563,7 @@ class MainWindow(QMainWindow):
     def onOpenCloudTriggered(self) -> None:
         dialog = OpenCloudDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.downloaded_json_path:
-            self._open_calibration(dialog.downloaded_json_path)
+            self._load_calibration(dialog.downloaded_json_path)
 
     def onPublishCloudTriggered(self) -> None:
         if not self._controller.calibration.image:
