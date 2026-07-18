@@ -556,6 +556,7 @@ fun MapScreen(
 
         // About Application Dialog
         if (showAboutDialog) {
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
                 title = { Text(text = "Application Info") },
@@ -564,7 +565,36 @@ fun MapScreen(
                         Text(text = "Author: Ondrej Santin")
                         Text(text = "Email: ondrej.santin@gmail.com")
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Version: 1.0")
+                        Text(text = "Organization: klub AWAY, 39. oddíl Dorostové unie")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Links:")
+                        Text(
+                            text = "klub AWAY: away.cbdobris.cz",
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                            modifier = Modifier.clickable {
+                                try {
+                                    uriHandler.openUri("https://away.cbdobris.cz")
+                                } catch (e: Exception) {
+                                    // Ignored
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Dorostová unie: dorostovaunie.cz",
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                            modifier = Modifier.clickable {
+                                try {
+                                    uriHandler.openUri("https://dorostovaunie.cz")
+                                } catch (e: Exception) {
+                                    // Ignored
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Version: 1.1")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(text = "License: MIT License")
                     }
