@@ -709,14 +709,33 @@ private fun MissionMapContent(
                         zoomOffset = if (zoomScale == 1f) Offset.Zero else zoomOffset + rotatedPan
                     }
                 }
-                .pointerInput(missionPoints) {
+                .pointerInput(missionPoints, missionPointScreenCoords, zoomScale, zoomOffset, deviceHeading) {
                     detectTapGestures { tapOffset ->
                         val touchRadius = 40f
+                        val centerOffset = Offset(canvasWidthPx / 2f, canvasHeightPx / 2f)
                         val hit = missionPoints.indices.firstOrNull { i ->
                             val sc = missionPointScreenCoords[i]
-                            val dx = tapOffset.x - sc.x
-                            val dy = tapOffset.y - sc.y
-                            (dx * dx + dy * dy) <= touchRadius * touchRadius
+
+                            // 1. Scale relative to center
+                            val px1 = centerOffset.x + (sc.x - centerOffset.x) * zoomScale
+                            val py1 = centerOffset.y + (sc.y - centerOffset.y) * zoomScale
+
+                            // 2. Translate by zoomOffset
+                            val px2 = px1 + zoomOffset.x
+                            val py2 = py1 + zoomOffset.y
+
+                            // 3. Rotate relative to center by -deviceHeading
+                            val rad = -deviceHeading * (Math.PI / 180.0).toFloat()
+                            val cosVal = kotlin.math.cos(rad)
+                            val sinVal = kotlin.math.sin(rad)
+                            val dx = px2 - centerOffset.x
+                            val dy = py2 - centerOffset.y
+                            val transformedX = centerOffset.x + (dx * cosVal - dy * sinVal)
+                            val transformedY = centerOffset.y + (dx * sinVal + dy * cosVal)
+
+                            val dxTap = tapOffset.x - transformedX
+                            val dyTap = tapOffset.y - transformedY
+                            (dxTap * dxTap + dyTap * dyTap) <= touchRadius * touchRadius
                         }
                         if (hit != null) {
                             onMissionPointTapped(missionPoints[hit])

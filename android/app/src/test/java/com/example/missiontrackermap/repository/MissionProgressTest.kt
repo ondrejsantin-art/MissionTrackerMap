@@ -184,4 +184,47 @@ class MissionProgressTest {
         completed = if ("Alpha" in completed) completed - "Alpha" else completed + "Alpha"
         assertTrue(completed.isEmpty())
     }
+
+    @Test
+    fun testCoordinateTransformation() {
+        val center = Coordinate(100f, 100f)
+        val p = Coordinate(120f, 130f)
+        val zoomScale = 2f
+        val zoomOffset = Coordinate(10f, -20f)
+        val heading = 90f // 90 degrees clockwise rotation (angle = -90)
+
+        // 1. Scale around center
+        // p = (120, 130) -> center (100, 100). dx = 20, dy = 30.
+        // scaled = center + dx*2, dy*2 = (140, 160)
+        val px1 = center.x + (p.x - center.x) * zoomScale
+        val py1 = center.y + (p.y - center.y) * zoomScale
+        assertEquals(140f, px1)
+        assertEquals(160f, py1)
+
+        // 2. Translate
+        // translated = (140 + 10, 160 - 20) = (150, 140)
+        val px2 = px1 + zoomOffset.x
+        val py2 = py1 + zoomOffset.y
+        assertEquals(150f, px2)
+        assertEquals(140f, py2)
+
+        // 3. Rotate around center by -heading (-90 degrees)
+        // dx = 150 - 100 = 50
+        // dy = 140 - 100 = 40
+        // Rotation by -90 deg: cos(-90) = 0, sin(-90) = -1
+        // rx = center.x + (dx * cos - dy * sin) = 100 + (50 * 0 - 40 * -1) = 140
+        // ry = center.y + (dx * sin + dy * cos) = 100 + (50 * -1 + 40 * 0) = 50
+        val rad = -heading * (Math.PI / 180.0).toFloat()
+        val cosVal = kotlin.math.cos(rad)
+        val sinVal = kotlin.math.sin(rad)
+        val dx = px2 - center.x
+        val dy = py2 - center.y
+        val px3 = center.x + (dx * cosVal - dy * sinVal)
+        val py3 = center.y + (dx * sinVal + dy * cosVal)
+
+        assertEquals(140f, px3, 0.01f)
+        assertEquals(50f, py3, 0.01f)
+    }
+
+    private data class Coordinate(val x: Float, val y: Float)
 }

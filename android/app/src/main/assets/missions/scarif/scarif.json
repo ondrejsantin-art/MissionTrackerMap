@@ -14,7 +14,8 @@
             "gps": {
                 "latitude": 50.880185,
                 "longitude": 15.1371217
-            }
+            },
+            "missionObjective": "1 - sit"
         },
         {
             "name": "02",
@@ -25,7 +26,8 @@
             "gps": {
                 "latitude": 50.8837408,
                 "longitude": 15.1257856
-            }
+            },
+            "missionObjective": "2 - generátor štítů"
         },
         {
             "name": "03",
@@ -36,7 +38,8 @@
             "gps": {
                 "latitude": 50.8761064,
                 "longitude": 15.1338606
-            }
+            },
+            "missionObjective": "3 - ariadnina síť "
         },
         {
             "name": "04",
@@ -47,7 +50,8 @@
             "gps": {
                 "latitude": 50.8695631,
                 "longitude": 15.1299092
-            }
+            },
+            "missionObjective": "4 - kuličky"
         },
         {
             "name": "05",
@@ -58,7 +62,8 @@
             "gps": {
                 "latitude": 50.8681872,
                 "longitude": 15.1305156
-            }
+            },
+            "missionObjective": "5 - lanovka"
         },
         {
             "name": "06",
@@ -69,7 +74,8 @@
             "gps": {
                 "latitude": 50.8690533,
                 "longitude": 15.1367883
-            }
+            },
+            "missionObjective": "6 - antigravitace"
         },
         {
             "name": "07",
@@ -80,7 +86,8 @@
             "gps": {
                 "latitude": 50.8708681,
                 "longitude": 15.1377544
-            }
+            },
+            "missionObjective": "sít oko"
         },
         {
             "name": "archiv",
@@ -91,7 +98,8 @@
             "gps": {
                 "latitude": 50.86592,
                 "longitude": 15.1380633
-            }
+            },
+            "missionObjective": "Scarif archiv"
         }
     ]
 }
