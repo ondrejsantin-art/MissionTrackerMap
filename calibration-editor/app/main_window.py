@@ -480,9 +480,12 @@ class MainWindow(QMainWindow):
         self._calibration_path = filename
 
     def _load_calibration(self, filename: str) -> None:
+        print(f"DEBUG: _load_calibration called with filename: {filename}")
         try:
             calibration = load_calibration(filename)
+            print(f"DEBUG: Loaded calibration successfully. image={calibration.image}, points count={len(calibration.points)}")
         except (FileNotFoundError, OSError, ValueError) as exc:
+            print(f"DEBUG: Failed to parse/load calibration: {exc}")
             QMessageBox.warning(self, "Load failed", str(exc))
             return
 
@@ -561,9 +564,15 @@ class MainWindow(QMainWindow):
         )
 
     def onOpenCloudTriggered(self) -> None:
+        print("DEBUG: onOpenCloudTriggered started")
         dialog = OpenCloudDialog(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.downloaded_json_path:
+        result = dialog.exec()
+        print(f"DEBUG: OpenCloudDialog finished. result={result} (Accepted={int(QDialog.DialogCode.Accepted)}), path={dialog.downloaded_json_path}")
+        if result == QDialog.DialogCode.Accepted and dialog.downloaded_json_path:
+            print("DEBUG: Calling _load_calibration")
             self._load_calibration(dialog.downloaded_json_path)
+        else:
+            print("DEBUG: Did not call _load_calibration (condition not met)")
 
     def onPublishCloudTriggered(self) -> None:
         if not self._controller.calibration.image:
