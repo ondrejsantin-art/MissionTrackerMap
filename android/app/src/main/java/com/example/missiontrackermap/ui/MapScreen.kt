@@ -687,7 +687,10 @@ fun MapScreen(
                 onDismissRequest = { tappedMissionPoint = null },
                 title = { Text(point.name) },
                 text = {
-                    Text(point.missionObjective ?: "No mission objective")
+                    Text(
+                        text = point.missionObjective?.let { parseMarkdownToAnnotatedString(it) }
+                            ?: androidx.compose.ui.text.AnnotatedString("No mission objective")
+                    )
                 },
                 confirmButton = {
                     TextButton(onClick = {
