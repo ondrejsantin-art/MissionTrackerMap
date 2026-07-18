@@ -921,13 +921,13 @@ private fun DrawScope.drawMissionPoint(center: Offset, completed: Boolean) {
 
     // Outer white ring for contrast on any map background
     drawCircle(
-        color = Color.White.copy(alpha = 0.85f),
+        color = Color.White.copy(alpha = 0.6f),
         radius = r + 3f,
         center = center
     )
     // Filled indicator
     drawCircle(
-        color = fillColor,
+        color = fillColor.copy(alpha = 0.6f),
         radius = r,
         center = center
     )
@@ -941,7 +941,7 @@ private fun DrawScope.drawMissionPoint(center: Offset, completed: Boolean) {
         }
         drawPath(
             path = checkPath,
-            color = Color.White,
+            color = Color.White.copy(alpha = 0.8f),
             style = Stroke(
                 width = 2.5f,
                 cap = androidx.compose.ui.graphics.StrokeCap.Round,
