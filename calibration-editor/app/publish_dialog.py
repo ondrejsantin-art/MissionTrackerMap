@@ -1,5 +1,6 @@
 import os
 import keyring
+import hashlib
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QMessageBox
@@ -25,8 +26,25 @@ class PublishWorker(QThread):
             client.login(self.email, self.password)
             image_name = os.path.basename(self.image_path)
             
-            client.upload_image(self.mission_id, image_name, self.image_path)
-            client.publish_mission(self.mission_id, self.calibration_json, version=1)
+            # Compute MD5 hash of the local image
+            with open(self.image_path, "rb") as f:
+                image_hash = hashlib.md5(f.read()).hexdigest()
+                
+            # Check if mission exists and if image hash matches
+            skip_upload = False
+            try:
+                existing_mission = client.fetch_mission_detail(self.mission_id)
+                existing_hash = existing_mission.get("json_data", {}).get("image_hash")
+                if existing_hash == image_hash:
+                    skip_upload = True
+            except SupabaseRequestError:
+                # Mission might not exist
+                pass
+
+            if not skip_upload:
+                client.upload_image(self.mission_id, image_name, self.image_path)
+                
+            client.publish_mission(self.mission_id, self.calibration_json, image_hash=image_hash)
             
             self.finished_signal.emit(True, "Successfully published mission to cloud.")
         except SupabaseAuthError as e:

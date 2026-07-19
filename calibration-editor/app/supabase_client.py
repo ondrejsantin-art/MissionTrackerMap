@@ -122,21 +122,47 @@ class SupabaseClient:
         if not response.ok:
             raise SupabaseRequestError(f"Failed to upload image: {response.text}")
 
-    def publish_mission(self, mission_id: str, calibration_json: str, version: int = 1) -> None:
-        url = f"{self.URL}/rest/v1/missions"
+    def publish_mission(self, mission_id: str, calibration_json: str, image_hash: Optional[str] = None) -> None:
+        check_url = f"{self.URL}/rest/v1/missions?id=eq.{mission_id}&select=id,version"
         headers = self._get_auth_headers()
-        headers["Content-Type"] = "application/json"
-        # Prefer representation to get inserted row back
-        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        
+        resp = requests.get(check_url, headers=headers)
+        if not resp.ok:
+            raise SupabaseRequestError(f"Failed to check mission existence ({check_url}): {resp.text}")
+            
+        data = resp.json()
+        
+        json_data_dict = json.loads(calibration_json)
+        if image_hash:
+            json_data_dict["image_hash"] = image_hash
 
-        data = {
-            "id": mission_id,
-            "version": version,
-            "json_data": json.loads(calibration_json)
+        payload = {
+            "json_data": json_data_dict
         }
         if self._user_id:
-            data["owner_id"] = self._user_id
+            payload["owner_id"] = self._user_id
 
-        response = requests.post(url, headers=headers, json=data)
-        if not response.ok:
-            raise SupabaseRequestError(f"Failed to publish mission JSON: {response.text}")
+        headers["Content-Type"] = "application/json"
+        headers["Prefer"] = "return=representation"
+
+        if data:
+            current_version = data[0].get("version", 0)
+            payload["version"] = current_version + 1
+            
+            patch_url = f"{self.URL}/rest/v1/missions?id=eq.{mission_id}"
+            
+            response = requests.patch(patch_url, headers=headers, json=payload)
+            if not response.ok:
+                raise SupabaseRequestError(f"Failed to update existing mission ({patch_url}): {response.text}")
+            
+            if not response.json():
+                raise SupabaseRequestError("You do not have permission to overwrite this mission.")
+        else:
+            payload["id"] = mission_id
+            payload["version"] = 1
+            
+            post_url = f"{self.URL}/rest/v1/missions"
+            
+            response = requests.post(post_url, headers=headers, json=payload)
+            if not response.ok:
+                raise SupabaseRequestError(f"Failed to publish new mission ({post_url}): {response.text}")
