@@ -22,7 +22,8 @@ private const val MISSIONS_ROOT = "missions"
 @Serializable
 internal data class SupabaseMissionVersion(
     val id: String,
-    val version: Int
+    val version: Int,
+    val owner_id: String? = null
 )
 
 @Serializable
@@ -37,6 +38,7 @@ class SupabaseSyncManager(
 ) {
 
     private val json = Json { ignoreUnknownKeys = true }
+    private var _ownerIds: Map<String, String?> = emptyMap()
 
     /**
      * Synchronizes missions from Supabase.
@@ -64,7 +66,7 @@ class SupabaseSyncManager(
     }
 
     fun fetchRemoteMissions(): Map<String, Int> {
-        val url = "${SupabaseConfig.URL}/rest/v1/missions?select=id,version"
+        val url = "${SupabaseConfig.URL}/rest/v1/missions?select=id,version,owner_id"
         val request = Request.Builder()
             .url(url)
             .addHeader("apikey", SupabaseConfig.ANON_KEY)
@@ -75,6 +77,8 @@ class SupabaseSyncManager(
             if (!response.isSuccessful) throw IOException("Failed to fetch remote missions: HTTP ${response.code}")
             val body = response.body?.string() ?: throw IOException("Empty body response from remote missions fetch")
             val list = json.decodeFromString<List<SupabaseMissionVersion>>(body)
+            // Store owner_id mapping for later use
+            _ownerIds = list.associate { it.id to it.owner_id }
             return list.associate { it.id to it.version }
         }
     }
@@ -173,5 +177,22 @@ class SupabaseSyncManager(
         val calibrationFile = File(localMissionDir, "$missionId.json")
         calibrationFile.writeText(jsonStr)
         Log.i(TAG, "Successfully updated mission '$missionId' JSON at ${calibrationFile.absolutePath}")
+
+        // 5. Persist owner_id if known
+        val ownerId = _ownerIds[missionId]
+        val ownerFile = File(localMissionDir, ".owner")
+        if (ownerId != null) {
+            ownerFile.writeText(ownerId)
+        } else {
+            ownerFile.delete()
+        }
+    }
+
+    /**
+     * Reads the persisted owner_id for a local mission, or null if unknown.
+     */
+    fun getMissionOwnerId(missionId: String): String? {
+        val ownerFile = File(File(File(context.filesDir, MISSIONS_ROOT), missionId), ".owner")
+        return if (ownerFile.exists()) ownerFile.readText().trim() else null
     }
 }

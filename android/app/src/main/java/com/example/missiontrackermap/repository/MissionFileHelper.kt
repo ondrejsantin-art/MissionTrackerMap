@@ -84,4 +84,22 @@ class MissionFileHelper(private val missionsDir: File) {
         }
         return Result.success(Unit)
     }
+
+    /**
+     * Saves updated [CalibrationData] to the mission's JSON file on disk.
+     */
+    fun saveCalibration(missionId: String, calibration: CalibrationData): Result<Unit> {
+        val missionDir = File(missionsDir, missionId)
+        if (!missionDir.exists()) {
+            return Result.failure(Exception("Mission directory does not exist"))
+        }
+        return try {
+            val jsonFile = File(missionDir, "$missionId.json")
+            val content = json.encodeToString(CalibrationData.serializer(), calibration)
+            jsonFile.writeText(content)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to save calibration: ${e.message}"))
+        }
+    }
 }

@@ -72,6 +72,9 @@ dependencies {
     // GPS / Location
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
+    // Secure credential storage
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")

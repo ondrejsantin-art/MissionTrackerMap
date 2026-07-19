@@ -14,7 +14,23 @@ fun MissionTrackerApp(
 ) {
     NavHost(navController = navController, startDestination = "map") {
         composable("map") {
-            MapScreen(viewModel = viewModel)
+            MapScreen(
+                viewModel = viewModel,
+                onNavigateToLogin = { navController.navigate("login") },
+                onNavigateToEditMission = { navController.navigate("edit_mission") }
+            )
+        }
+        composable("login") {
+            LoginScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable("edit_mission") {
+            EditMissionScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

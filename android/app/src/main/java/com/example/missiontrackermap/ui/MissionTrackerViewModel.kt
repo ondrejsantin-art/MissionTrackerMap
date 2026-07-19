@@ -12,10 +12,14 @@ import com.example.missiontrackermap.location.FusedLocationProvider
 import com.example.missiontrackermap.math.AffineTransformer
 import com.example.missiontrackermap.math.CoordinateTransformer
 import com.example.missiontrackermap.model.CalibrationData
+import com.example.missiontrackermap.model.CalibrationPoint
 import com.example.missiontrackermap.model.GpsCoordinate
 import com.example.missiontrackermap.model.MissionProgress
+import com.example.missiontrackermap.model.PixelCoordinate
+import com.example.missiontrackermap.repository.CredentialManager
 import com.example.missiontrackermap.repository.MissionTrackerRepository
 import com.example.missiontrackermap.repository.MissionFileHelper
+import com.example.missiontrackermap.repository.SupabaseAuthManager
 import com.example.missiontrackermap.repository.SupabaseSyncManager
 import com.example.missiontrackermap.sensor.OrientationProvider
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +35,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 private const val TAG = "MissionTrackerViewModel"
 
@@ -48,6 +56,8 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val repository = MissionTrackerRepository(application)
     private val locationProvider = FusedLocationProvider(application)
     private val orientationProvider = OrientationProvider(application)
+    private val credentialManager = CredentialManager(application)
+    private val authManager = SupabaseAuthManager()
 
     // --- Mission state ---
     private val _mapBitmap = MutableStateFlow<ImageBitmap?>(null)
@@ -73,6 +83,13 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
     private val _localVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
     val localVersions: StateFlow<Map<String, Int>> = _localVersions
+
+    // --- Auth state ---
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
+
+    private val _loginEmail = MutableStateFlow("")
+    val loginEmail: StateFlow<String> = _loginEmail
 
     // --- Mission progress ---
     private val _completedPoints = MutableStateFlow<Set<String>>(emptySet())
@@ -147,6 +164,39 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         refreshMissions()
         loadMission("scarif")
         syncMissions()
+        autoLogin()
+    }
+
+    /** Auto-login with saved credentials on startup. */
+    private fun autoLogin() {
+        val creds = credentialManager.getCredentials() ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = authManager.login(creds.first, creds.second)
+            if (result.isSuccess) {
+                _isLoggedIn.value = true
+                _loginEmail.value = creds.first
+                Log.i(TAG, "Auto-login successful")
+            } else {
+                Log.w(TAG, "Auto-login failed: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    fun login(email: String, password: String): Result<String> {
+        val result = authManager.login(email, password)
+        if (result.isSuccess) {
+            credentialManager.saveCredentials(email, password)
+            _isLoggedIn.value = true
+            _loginEmail.value = email
+        }
+        return result
+    }
+
+    fun logout() {
+        authManager.logout()
+        credentialManager.clearCredentials()
+        _isLoggedIn.value = false
+        _loginEmail.value = ""
     }
 
     fun syncMissions() {
@@ -397,6 +447,107 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
                 Log.e(TAG, "Location permission not granted: ${e.message}")
                 _loadError.value = "Location permission required"
             }
+        }
+    }
+
+    // --- Mission editing ---
+
+    /**
+     * Returns true if the logged-in user is the author (owner) of this mission.
+     */
+    fun canEditMission(missionId: String): Boolean {
+        if (!authManager.isAuthenticated) return false
+        val syncManager = SupabaseSyncManager(getApplication())
+        val ownerId = syncManager.getMissionOwnerId(missionId) ?: return false
+        return ownerId == authManager.getUserId()
+    }
+
+    /**
+     * Updates a single calibration point in memory and saves to local JSON.
+     */
+    fun updatePoint(index: Int, name: String, objective: String?, pixelX: Double, pixelY: Double) {
+        val cal = _calibration.value ?: return
+        if (index < 0 || index >= cal.points.size) return
+
+        val oldPoint = cal.points[index]
+        val newPoint = oldPoint.copy(
+            name = name,
+            missionObjective = objective,
+            pixel = PixelCoordinate(x = pixelX, y = pixelY)
+        )
+
+        val newPoints = cal.points.toMutableList().apply { set(index, newPoint) }
+        val updatedCal = cal.copy(points = newPoints)
+        _calibration.value = updatedCal
+
+        // Persist to local JSON
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))
+            val result = fileHelper.saveCalibration(_currentMissionId.value, updatedCal)
+            if (result.isFailure) {
+                Log.e(TAG, "Failed to save calibration: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Publishes the current mission's calibration data to Supabase.
+     * Increments the version and PATCHes the json_data column.
+     */
+    fun publishMission(): Result<Unit> {
+        if (!authManager.isAuthenticated) {
+            return Result.failure(Exception("Not logged in"))
+        }
+        val cal = _calibration.value ?: return Result.failure(Exception("No mission loaded"))
+        val missionId = _currentMissionId.value
+
+        return try {
+            val headers = authManager.getAuthHeaders()
+            val localVersion = cal.version
+            val newVersion = localVersion + 1
+            val updatedCal = cal.copy(version = newVersion)
+
+            val jsonEncoder = Json { ignoreUnknownKeys = true }
+            val calibrationJson = jsonEncoder.encodeToString(CalibrationData.serializer(), updatedCal)
+
+            val payload = """{"json_data": $calibrationJson, "version": $newVersion}"""
+
+            val url = "${com.example.missiontrackermap.SupabaseConfig.URL}/rest/v1/missions?id=eq.$missionId"
+            val client = OkHttpClient()
+            val request = Request.Builder()
+                .url(url)
+                .apply {
+                    headers.forEach { (k, v) -> addHeader(k, v) }
+                }
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=representation")
+                .patch(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val body = response.body?.string() ?: ""
+                    return Result.failure(Exception("Publish failed (HTTP ${response.code}): $body"))
+                }
+                val responseBody = response.body?.string() ?: "[]"
+                if (responseBody == "[]" || responseBody.isBlank()) {
+                    return Result.failure(Exception("No permission to update this mission"))
+                }
+            }
+
+            // Update local state with new version
+            _calibration.value = updatedCal
+            val context = getApplication<Application>()
+            val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))
+            fileHelper.saveCalibration(missionId, updatedCal)
+            refreshMissions()
+
+            Log.i(TAG, "Published mission '$missionId' as version $newVersion")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Publish error: ${e.message}", e)
+            Result.failure(e)
         }
     }
 }

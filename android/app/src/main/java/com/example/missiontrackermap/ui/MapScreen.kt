@@ -60,6 +60,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -114,7 +115,9 @@ private fun getFileName(context: android.content.Context, uri: android.net.Uri):
 @Composable
 fun MapScreen(
     viewModel: MissionTrackerViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToLogin: () -> Unit = {},
+    onNavigateToEditMission: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val mapBitmap by viewModel.mapBitmap.collectAsState()
@@ -132,6 +135,8 @@ fun MapScreen(
     val deviceHeading by viewModel.deviceHeading.collectAsState()
     val compassHeading by viewModel.compassHeading.collectAsState()
     val completedPoints by viewModel.completedPoints.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val currentCanEdit = viewModel.canEditMission(currentMissionId)
 
     var menuExpanded by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -336,6 +341,23 @@ fun MapScreen(
                         showAboutDialog = true
                     }
                 )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(if (isLoggedIn) "Account Settings" else "Supabase Login") },
+                    onClick = {
+                        menuExpanded = false
+                        onNavigateToLogin()
+                    }
+                )
+                if (currentCanEdit) {
+                    DropdownMenuItem(
+                        text = { Text("Edit Mission") },
+                        onClick = {
+                            menuExpanded = false
+                            onNavigateToEditMission()
+                        }
+                    )
+                }
             }
         }
 
