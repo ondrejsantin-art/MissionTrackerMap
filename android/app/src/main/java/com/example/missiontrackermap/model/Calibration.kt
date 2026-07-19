@@ -30,5 +30,5 @@ data class CalibrationData(
     val imageWidth: Int,
     val imageHeight: Int,
     val points: List<CalibrationPoint>,
-    val selectedPoint: String? = null
+    val selectedPoint: Int? = null
 )

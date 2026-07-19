@@ -22,6 +22,8 @@ class MissionTrackerRepository(private val context: Context) {
 
     fun availableMissions(): List<String> = loader.availableMissions()
 
+    fun getMissionVersion(missionId: String): Int = loader.getMissionVersion(missionId)
+
     // --- Mission progress (sidecar file per mission) ---
 
     /**

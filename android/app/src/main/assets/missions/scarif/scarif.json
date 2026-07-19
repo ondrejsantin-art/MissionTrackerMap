@@ -1,105 +1,105 @@
 {
-    "version": 1,
     "image": "scarif.png",
-    "imageWidth": 4220,
-    "imageHeight": 5964,
-    "selectedPoint": null,
     "points": [
         {
+            "gps": {
+                "latitude": 50.880185,
+                "longitude": 15.1371217
+            },
             "name": "01",
             "pixel": {
                 "x": 2980,
                 "y": 1348
             },
-            "gps": {
-                "latitude": 50.880185,
-                "longitude": 15.1371217
-            },
-            "missionObjective": "1 - sitova disciplina"
+            "missionObjective": "**1 - sit**"
         },
         {
+            "gps": {
+                "latitude": 50.8837408,
+                "longitude": 15.1257856
+            },
             "name": "02",
             "pixel": {
                 "x": 676,
                 "y": 227
             },
-            "gps": {
-                "latitude": 50.8837408,
-                "longitude": 15.1257856
-            },
-            "missionObjective": "2 - generátor štítů"
+            "missionObjective": "**2 - generátor štítů muj**"
         },
         {
+            "gps": {
+                "latitude": 50.8761064,
+                "longitude": 15.1338606
+            },
             "name": "03",
             "pixel": {
                 "x": 2183,
                 "y": 2649
             },
-            "gps": {
-                "latitude": 50.8761064,
-                "longitude": 15.1338606
-            },
-            "missionObjective": "3 - ariadnina síť "
+            "missionObjective": "**3 - ariadnina sítě** \n bude pekna otrava jestli nebude takto fungivat ale zajimalo by me jak to bude vypadat \n az to bude delai text.bude zvladat i *mezery* ? "
         },
         {
+            "gps": {
+                "latitude": 50.8695631,
+                "longitude": 15.1299092
+            },
             "name": "04",
             "pixel": {
                 "x": 1537,
                 "y": 4619
             },
-            "gps": {
-                "latitude": 50.8695631,
-                "longitude": 15.1299092
-            },
             "missionObjective": "4 - kuličky"
         },
         {
+            "gps": {
+                "latitude": 50.8681872,
+                "longitude": 15.1305156
+            },
             "name": "05",
             "pixel": {
                 "x": 1647,
                 "y": 5040
             },
-            "gps": {
-                "latitude": 50.8681872,
-                "longitude": 15.1305156
-            },
             "missionObjective": "5 - lanovka"
         },
         {
+            "gps": {
+                "latitude": 50.8690533,
+                "longitude": 15.1367883
+            },
             "name": "06",
             "pixel": {
                 "x": 2937,
                 "y": 4781
             },
-            "gps": {
-                "latitude": 50.8690533,
-                "longitude": 15.1367883
-            },
             "missionObjective": "6 - antigravitace"
         },
         {
+            "gps": {
+                "latitude": 50.8708681,
+                "longitude": 15.1377544
+            },
             "name": "07",
             "pixel": {
                 "x": 3041,
                 "y": 4176
             },
-            "gps": {
-                "latitude": 50.8708681,
-                "longitude": 15.1377544
-            },
-            "missionObjective": "sít oko"
+            "missionObjective": "sítě oko velke s rolnickama"
         },
         {
+            "gps": {
+                "latitude": 50.86592,
+                "longitude": 15.1380633
+            },
             "name": "archiv",
             "pixel": {
                 "x": 3195,
                 "y": 5738
             },
-            "gps": {
-                "latitude": 50.86592,
-                "longitude": 15.1380633
-            },
             "missionObjective": "Scarif archiv"
         }
-    ]
+    ],
+    "version": 8,
+    "imageWidth": 4220,
+    "imageHeight": 5964,
+    "selectedPoint": null
 }

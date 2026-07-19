@@ -1,11 +1,9 @@
-name: Android MVP CI
+name: Build and Deploy
 
-# Run on pushes to the new branch (and pull‑requests targeting it)
+# Run on pushes and pull requests targeting any branch
 on:
   push:
-    branches: [ 1-android-app-mvp ]
   pull_request:
-    branches: [ 1-android-app-mvp ]
 
 jobs:
   build:
