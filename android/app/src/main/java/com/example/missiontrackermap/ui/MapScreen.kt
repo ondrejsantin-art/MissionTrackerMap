@@ -409,7 +409,7 @@ fun MapScreen(
                                         )
                                     }
                                 }
-                                if (isLocal && !viewModel.isBuiltInMission(missionId)) {
+                                if (isLocal && !viewModel.isBuiltInMission(missionId) && !viewModel.isCloudMission(missionId)) {
                                     IconButton(
                                         onClick = {
                                             missionToRename = missionId

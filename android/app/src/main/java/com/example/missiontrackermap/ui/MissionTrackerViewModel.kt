@@ -339,15 +339,21 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         return assetMissions.contains(missionId)
     }
 
+    fun isCloudMission(missionId: String): Boolean {
+        val context = getApplication<Application>()
+        val localMissionDir = File(File(context.filesDir, "missions"), missionId)
+        return File(localMissionDir, ".cloud").exists()
+    }
+
     fun renameMission(oldMissionId: String, newMissionId: String): Result<Unit> {
         if (newMissionId.isBlank()) {
             return Result.failure(Exception("New name cannot be blank"))
         }
-        if (isBuiltInMission(oldMissionId)) {
-            return Result.failure(Exception("Cannot rename built-in mission"))
+        if (isBuiltInMission(oldMissionId) || isCloudMission(oldMissionId)) {
+            return Result.failure(Exception("Cannot rename built-in or cloud mission"))
         }
-        if (isBuiltInMission(newMissionId)) {
-            return Result.failure(Exception("A built-in mission with this name already exists"))
+        if (isBuiltInMission(newMissionId) || isCloudMission(newMissionId)) {
+            return Result.failure(Exception("A built-in or cloud mission with this name already exists"))
         }
         val context = getApplication<Application>()
         val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))
@@ -362,8 +368,8 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun deleteMission(missionId: String): Result<Unit> {
-        if (isBuiltInMission(missionId)) {
-            return Result.failure(Exception("Cannot delete built-in mission"))
+        if (isBuiltInMission(missionId) || isCloudMission(missionId)) {
+            return Result.failure(Exception("Cannot delete built-in or cloud mission"))
         }
         val context = getApplication<Application>()
         val fileHelper = MissionFileHelper(File(context.filesDir, "missions"))

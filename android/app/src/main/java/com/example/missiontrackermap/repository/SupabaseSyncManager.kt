@@ -99,6 +99,10 @@ class SupabaseSyncManager(
         if (!localMissionDir.exists()) {
             localMissionDir.mkdirs()
         }
+        val markerFile = File(localMissionDir, ".cloud")
+        if (!markerFile.exists()) {
+            markerFile.createNewFile()
+        }
 
         // 1. Fetch full JSON payload and version column
         val url = "${SupabaseConfig.URL}/rest/v1/missions?id=eq.$missionId&select=version,json_data"
