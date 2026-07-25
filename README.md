@@ -75,7 +75,10 @@ Toolkit for GPS-based outdoor games. Consists of a desktop map calibration edito
 - **Interactive Map View (`MapScreen.kt`)**: Renders game map and real-time location.
 - **GPS Integration (`FusedLocationProvider.kt`)**: Accurate coordinate tracking.
 - **Coordinate Transformation (`AffineTransformer.kt`)**: Dynamic GPS-to-pixel mapping.
-- **Mission Editor (`EditMissionScreen.kt`)**: Interactively edit mission checkpoints.
+- **Mission Editor (`EditMissionScreen.kt`)**: Define custom game missions. Features include:
+  - Defining complete missions with custom metadata and descriptions.
+  - Adding, modifying, and deleting sequential mission points (checkpoints).
+  - Setting specific descriptions, coordinates, and instructions for each mission point.
 - **Cloud Syncing (`SupabaseSyncManager.kt`)**: Supabase authentication and database sync.
 - **Secure Credentials (`CredentialManager.kt`)**: Device-secured API key storage.
 
