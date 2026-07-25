@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android") version "1.9.25"
@@ -7,6 +10,21 @@ plugins {
 android {
     namespace = "com.example.missiontrackermap"
     compileSdk = 35
+
+    val keystorePropertiesFile = rootProject.file("local.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("signing.keyAlias")
+            keyPassword = keystoreProperties.getProperty("signing.keyPassword")
+            storeFile = keystoreProperties.getProperty("signing.storeFilePath")?.let { rootProject.file("app/" + it) }
+            storePassword = keystoreProperties.getProperty("signing.storePassword")
+        }
+    }
 
     defaultConfig {
         applicationId = "com.example.missiontrackermap"
@@ -45,6 +63,13 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 }
 
