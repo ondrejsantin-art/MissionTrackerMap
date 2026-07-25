@@ -37,7 +37,16 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
           else
-            echo "Warning: SIGNING_KEYSTORE_BASE64 secret is not defined. Falling back to local default keystore if it exists."
+            echo "SIGNING_KEYSTORE_BASE64 secret not set. Generating dummy release keystore for build validation."
+            keytool -genkeypair \
+              -alias "release-key" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -keystore android/app/release.keystore \
+              -storepass "a3e5e5c8b7c020a4841d64d4358ce10b" \
+              -keypass "a3e5e5c8b7c020a4841d64d4358ce10b" \
+              -dname "CN=Dummy, O=Dummy, C=US"
           fi
 
       - name: Setup local.properties with signing config
