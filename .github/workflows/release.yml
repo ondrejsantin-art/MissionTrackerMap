@@ -65,10 +65,14 @@ jobs:
           cd android
           ./gradlew assembleRelease
 
+      - name: Rename APK to match release version
+        run: |
+          mv android/app/build/outputs/apk/release/MissionTrackerMap-release.apk android/app/build/outputs/apk/release/MissionTrackerMap-${{ github.ref_name }}.apk
+
       - name: Create GitHub Release and Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/MissionTrackerMap-release.apk
+          files: android/app/build/outputs/apk/release/MissionTrackerMap-${{ github.ref_name }}.apk
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
           draft: false
