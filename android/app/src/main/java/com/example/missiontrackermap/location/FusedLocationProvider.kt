@@ -35,7 +35,7 @@ private const val OVERRIDE_LONGITUDE = 15.1338606
 class FusedLocationProvider(private val context: Context) : LocationProvider {
 
     private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-    val isOverrideEnabled = MutableStateFlow(true)
+    val isOverrideEnabled = MutableStateFlow(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @SuppressLint("MissingPermission") // Permission is checked before this is called
