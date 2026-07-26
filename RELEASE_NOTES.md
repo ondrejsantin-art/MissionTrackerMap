@@ -1,3 +1,13 @@
+# MissionTrackerMap Release v1.3.0
+
+## Features & Improvements
+
+### 📱 Android Tracker App
+- **GPS Override Disabled by Default**: Coordinates now come from the physical GPS receiver by default instead of using the mocked/override coordinate coordinates.
+- **Password Visibility Toggle**: Added an eye icon/toggle to the login screen to allow users to show or hide their password input.
+
+---
+
 # MissionTrackerMap Release v1.2.0
 
 ## Features
