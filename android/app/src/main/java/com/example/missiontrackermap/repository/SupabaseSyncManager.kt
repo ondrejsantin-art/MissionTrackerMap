@@ -29,7 +29,8 @@ internal data class SupabaseMissionVersion(
 @Serializable
 internal data class SupabaseMissionDetail(
     val version: Int,
-    val json_data: JsonObject
+    val json_data: JsonObject,
+    val owner_id: String? = null
 )
 
 class SupabaseSyncManager(
@@ -109,12 +110,14 @@ class SupabaseSyncManager(
         }
 
         // 1. Fetch full JSON payload and version column
-        val url = "${SupabaseConfig.URL}/rest/v1/missions?id=eq.$missionId&select=version,json_data"
+        val url = "${SupabaseConfig.URL}/rest/v1/missions?id=eq.$missionId&select=version,json_data,owner_id"
         val request = Request.Builder()
             .url(url)
             .addHeader("apikey", SupabaseConfig.ANON_KEY)
             .addHeader("Authorization", "Bearer ${SupabaseConfig.ANON_KEY}")
             .build()
+
+        var fetchedOwnerId: String? = null
 
         val jsonStr = client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Failed to fetch mission detail: HTTP ${response.code}")
@@ -123,6 +126,7 @@ class SupabaseSyncManager(
             if (details.isEmpty()) throw IOException("Mission '$missionId' not found on Supabase REST API")
             
             val detail = details[0]
+            fetchedOwnerId = detail.owner_id
             val rawJsonData = detail.json_data.toString()
             val calibration = json.decodeFromString<CalibrationData>(rawJsonData)
             
@@ -179,7 +183,7 @@ class SupabaseSyncManager(
         Log.i(TAG, "Successfully updated mission '$missionId' JSON at ${calibrationFile.absolutePath}")
 
         // 5. Persist owner_id if known
-        val ownerId = _ownerIds[missionId]
+        val ownerId = fetchedOwnerId ?: _ownerIds[missionId]
         val ownerFile = File(localMissionDir, ".owner")
         if (ownerId != null) {
             ownerFile.writeText(ownerId)
