@@ -676,7 +676,7 @@ fun MapScreen(
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Version: 1.1")
+                        Text(text = "Version: 1.5.0")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(text = "License: MIT License")
                     }

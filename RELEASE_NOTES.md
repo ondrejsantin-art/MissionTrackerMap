@@ -1,3 +1,13 @@
+# MissionTrackerMap Release v1.5.0
+
+## Features & Improvements
+
+### 📱 Android Tracker App
+- **Fix Manual Sync Permissions**: Fixed a bug where manually syncing a single mission deleted the local `.owner` file, causing the "Edit Mission" option to disappear from the menu.
+- **Rules updates**: Updated project rules to ensure developers keep version strings synchronized between build files and UI views.
+
+---
+
 # MissionTrackerMap Release v1.4.0
 
 ## Features & Improvements

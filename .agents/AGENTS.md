@@ -6,3 +6,5 @@ android run --apks=android/app/build/outputs/apk/debug/MissionTrackerMap-debug.a
 ```
 
 - Always write unit tests for any newly developed features and validate the code against them.
+- Always update the version string in android/app/src/main/java/com/example/missiontrackermap/ui/MapScreen.kt and the versionCode / versionName in android/app/build.gradle.kts when releasing new versions.
+
