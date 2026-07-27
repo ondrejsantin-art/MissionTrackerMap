@@ -1,3 +1,12 @@
+# MissionTrackerMap Release v1.4.0
+
+## Features & Improvements
+
+### 📱 Android Tracker App
+- **Scrollable Mission Point Details**: Added option to scroll down/up if the mission point description is longer text that does not fit the view, both in the mission point editor dialog and the map point detail dialog.
+
+---
+
 # MissionTrackerMap Release v1.3.0
 
 ## Features & Improvements
