@@ -151,6 +151,12 @@ fun MapScreen(
     var missionToDelete by remember { mutableStateOf<String?>(null) }
     var showResetMissionDialog by remember { mutableStateOf(false) }
     var tappedMissionPoint by remember { mutableStateOf<CalibrationPoint?>(null) }
+    var showSetNameDialog by remember { mutableStateOf(false) }
+    var showParticipantProgressDialog by remember { mutableStateOf(false) }
+    var setNamePendingPoint by remember { mutableStateOf<CalibrationPoint?>(null) }
+
+    val userName by viewModel.userName.collectAsState()
+    var nameInput by remember(userName) { mutableStateOf(userName) }
 
     LaunchedEffect(syncStatus) {
         if (syncStatus != "Idle" && !syncStatus.startsWith("Success")) {
@@ -359,7 +365,24 @@ fun MapScreen(
                             onNavigateToEditMission()
                         }
                     )
+                    DropdownMenuItem(
+                        text = { Text("View Participant Progress") },
+                        onClick = {
+                            menuExpanded = false
+                            viewModel.fetchAllUserProgress(currentMissionId)
+                            showParticipantProgressDialog = true
+                        }
+                    )
                 }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Set My Name") },
+                    onClick = {
+                        menuExpanded = false
+                        nameInput = userName
+                        showSetNameDialog = true
+                    }
+                )
             }
         }
 
@@ -676,7 +699,7 @@ fun MapScreen(
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Version: 1.5.0")
+                        Text(text = "Version: 1.6.0")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(text = "License: MIT License")
                     }
@@ -710,6 +733,63 @@ fun MapScreen(
             )
         }
 
+        // Set My Name dialog
+        if (showSetNameDialog) {
+            AlertDialog(
+                onDismissRequest = { showSetNameDialog = false },
+                title = { Text("Set Display Name") },
+                text = {
+                    Column {
+                        Text(
+                            text = "Your name is shown to mission creators when you share your progress.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = nameInput,
+                            onValueChange = { nameInput = it },
+                            label = { Text("Display Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = nameInput.isNotBlank(),
+                        onClick = {
+                            viewModel.setUserName(nameInput)
+                            showSetNameDialog = false
+                            // If triggered from a point tap, resume that tap
+                            setNamePendingPoint?.let {
+                                tappedMissionPoint = it
+                                setNamePendingPoint = null
+                            }
+                        }
+                    ) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showSetNameDialog = false
+                        setNamePendingPoint = null
+                    }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // Owner: participant progress dialog
+        if (showParticipantProgressDialog) {
+            val totalPoints = calibration?.points
+                ?.count { !it.missionObjective.isNullOrBlank() } ?: 0
+            MissionProgressDialog(
+                viewModel = viewModel,
+                missionId = currentMissionId,
+                totalPoints = totalPoints,
+                onDismiss = { showParticipantProgressDialog = false }
+            )
+        }
+
         // Mission point detail dialog
         tappedMissionPoint?.let { point ->
             val isCompleted = point.name in completedPoints
@@ -726,8 +806,16 @@ fun MapScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        viewModel.toggleMissionPoint(point.name)
-                        tappedMissionPoint = null
+                        if (userName.isBlank()) {
+                            // Require display name before sharing progress
+                            setNamePendingPoint = point
+                            tappedMissionPoint = null
+                            nameInput = ""
+                            showSetNameDialog = true
+                        } else {
+                            viewModel.toggleMissionPoint(point.name)
+                            tappedMissionPoint = null
+                        }
                     }) {
                         Text(if (isCompleted) "Mark Incomplete" else "Mark Complete")
                     }

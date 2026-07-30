@@ -185,6 +185,40 @@ class MissionProgressTest {
         assertTrue(completed.isEmpty())
     }
 
+    // --- Progress sharing: userName field ---
+
+    @Test
+    fun missionProgress_withUserName_roundTrip() {
+        val progress = MissionProgress(completedPoints = setOf("Alpha"), userName = "Jane")
+        val encoded = json.encodeToString(MissionProgress.serializer(), progress)
+        val decoded = json.decodeFromString<MissionProgress>(encoded)
+        assertEquals("Jane", decoded.userName)
+        assertEquals(setOf("Alpha"), decoded.completedPoints)
+    }
+
+    @Test
+    fun missionProgress_oldJsonWithoutUserName_defaultsToEmpty() {
+        // Existing sidecar files only have completedPoints — must parse without error
+        val oldJson = """{"completedPoints":["Alpha","Bravo"]}"""
+        val decoded = json.decodeFromString<MissionProgress>(oldJson)
+        assertEquals(setOf("Alpha", "Bravo"), decoded.completedPoints)
+        assertEquals("", decoded.userName)
+    }
+
+    @Test
+    fun pendingProgressSync_roundTrip() {
+        val entry = com.example.missiontrackermap.model.PendingProgressSync(
+            missionId = "scarif",
+            userName = "Bob",
+            completedPoints = listOf("Point A", "Point B")
+        )
+        val encoded = json.encodeToString(
+            com.example.missiontrackermap.model.PendingProgressSync.serializer(), entry
+        )
+        val decoded = json.decodeFromString<com.example.missiontrackermap.model.PendingProgressSync>(encoded)
+        assertEquals(entry, decoded)
+    }
+
     @Test
     fun testCoordinateTransformation() {
         val center = Coordinate(100f, 100f)
