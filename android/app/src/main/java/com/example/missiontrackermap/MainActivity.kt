@@ -68,6 +68,12 @@ class MainActivity : ComponentActivity() {
         checkAndRequestLocationPermission()
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.i(TAG, "onResume: flushing progress queue")
+        viewModelRef?.flushProgressQueue()
+    }
+
     private fun checkAndRequestLocationPermission() {
         val fineGranted = ContextCompat.checkSelfPermission(
             this, Manifest.permission.ACCESS_FINE_LOCATION

@@ -41,6 +41,11 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.example.missiontrackermap.model.UserProgressEntry
 import com.example.missiontrackermap.repository.MissionProgressSyncManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.content.Context
 
 private const val TAG = "MissionTrackerViewModel"
 
@@ -58,6 +63,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val repository = MissionTrackerRepository(application)
     private val locationProvider = FusedLocationProvider(application)
     private val orientationProvider = OrientationProvider(application)
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val credentialManager = CredentialManager(application)
     private val authManager = SupabaseAuthManager()
 
@@ -256,6 +262,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         loadMission("scarif")
         syncMissions()
         autoLogin()
+        registerNetworkCallback()
     }
 
     /** Auto-login with saved credentials on startup. */
@@ -639,6 +646,47 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         } catch (e: Exception) {
             Log.e(TAG, "Publish error: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        val connectivityManager = getApplication<Application>()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                super.onAvailable(network)
+                Log.i(TAG, "Network default: onAvailable")
+            }
+
+            override fun onLost(network: Network) {
+                super.onLost(network)
+                Log.i(TAG, "Network default: onLost")
+            }
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                super.onCapabilitiesChanged(network, capabilities)
+                val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                Log.i(TAG, "Network default capabilities changed: validated=$validated")
+                if (validated) {
+                    Log.i(TAG, "Network validated with internet access, flushing progress queue")
+                    flushProgressQueue()
+                }
+            }
+        }
+        connectivityManager.registerDefaultNetworkCallback(callback)
+        networkCallback = callback
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        networkCallback?.let { callback ->
+            val connectivityManager = getApplication<Application>()
+                .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            try {
+                connectivityManager.unregisterNetworkCallback(callback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to unregister network callback: ${e.message}")
+            }
         }
     }
 }
