@@ -839,7 +839,7 @@ private fun MissionMapContent(
     calibration: CalibrationData?,
     deviceHeading: Float,
     missionPoints: List<CalibrationPoint> = emptyList(),
-    completedPoints: Set<String> = emptySet(),
+    completedPoints: Map<String, Long> = emptyMap(),
     onMissionPointTapped: (CalibrationPoint) -> Unit = {}
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {

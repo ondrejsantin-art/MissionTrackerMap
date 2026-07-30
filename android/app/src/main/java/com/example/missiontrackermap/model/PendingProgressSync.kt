@@ -10,5 +10,5 @@ import kotlinx.serialization.Serializable
 data class PendingProgressSync(
     val missionId: String,
     val userName: String,
-    val completedPoints: List<String>
+    val completedPoints: Map<String, Long>
 )

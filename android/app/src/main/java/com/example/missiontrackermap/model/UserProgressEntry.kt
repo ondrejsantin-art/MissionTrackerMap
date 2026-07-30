@@ -10,6 +10,6 @@ import kotlinx.serialization.Serializable
 data class UserProgressEntry(
     val user_id: String,
     val user_name: String,
-    val completed_points: List<String>,
+    val completed_points: Map<String, Long>,
     val updated_at: String
 )

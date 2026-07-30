@@ -10,6 +10,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class MissionProgress(
-    val completedPoints: Set<String> = emptySet(),
+    val completedPoints: Map<String, Long> = emptyMap(),
     val userName: String = ""
 )

@@ -94,8 +94,8 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     val loginEmail: StateFlow<String> = _loginEmail
 
     // --- Mission progress ---
-    private val _completedPoints = MutableStateFlow<Set<String>>(emptySet())
-    val completedPoints: StateFlow<Set<String>> = _completedPoints
+    private val _completedPoints = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val completedPoints: StateFlow<Map<String, Long>> = _completedPoints
 
     // --- User name for progress sharing ---
     private val prefs by lazy {
@@ -145,7 +145,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         _completedPoints.value = if (pointName in current) {
             current - pointName
         } else {
-            current + pointName
+            current + (pointName to System.currentTimeMillis())
         }
         val missionId = _currentMissionId.value
         val points = _completedPoints.value
@@ -153,20 +153,20 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch(Dispatchers.IO) {
             repository.saveProgress(missionId, MissionProgress(points, name))
             if (name.isNotBlank()) {
-                pushProgress(missionId, name, points.toList())
+                pushProgress(missionId, name, points)
             }
         }
     }
 
     fun resetMission() {
-        _completedPoints.value = emptySet()
+        _completedPoints.value = emptyMap()
         val missionId = _currentMissionId.value
         val name = _userName.value
         viewModelScope.launch(Dispatchers.IO) {
             repository.clearProgress(missionId)
             // Push empty set to Supabase so the owner sees the reset
             if (name.isNotBlank()) {
-                pushProgress(missionId, name, emptyList())
+                pushProgress(missionId, name, emptyMap())
             }
         }
     }
@@ -175,7 +175,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
      * Upsert progress to Supabase. On failure, enqueues locally for retry.
      * Must be called from an IO coroutine.
      */
-    private fun pushProgress(missionId: String, userName: String, completedPoints: List<String>) {
+    private fun pushProgress(missionId: String, userName: String, completedPoints: Map<String, Long>) {
         val syncMgr = MissionProgressSyncManager(getApplication())
         _progressSyncStatus.value = "Syncing"
         val ok = syncMgr.pushProgress(missionId, userName, completedPoints, deviceUserId)

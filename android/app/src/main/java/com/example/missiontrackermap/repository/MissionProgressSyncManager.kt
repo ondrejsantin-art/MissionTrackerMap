@@ -21,7 +21,7 @@ private data class UpsertProgressRequest(
     val mission_id: String,
     val user_id: String,
     val user_name: String,
-    val completed_points: List<String>,
+    val completed_points: Map<String, Long>,
     val updated_at: String = ""
 )
 
@@ -55,7 +55,7 @@ class MissionProgressSyncManager(
     fun pushProgress(
         missionId: String,
         userName: String,
-        completedPoints: List<String>,
+        completedPoints: Map<String, Long>,
         userId: String
     ): Boolean {
         return try {
@@ -120,7 +120,7 @@ class MissionProgressSyncManager(
     // --- Offline queue ---
 
     /** Append a failed push entry to the local disk queue. */
-    fun enqueue(missionId: String, userName: String, completedPoints: List<String>) {
+    fun enqueue(missionId: String, userName: String, completedPoints: Map<String, Long>) {
         val file = queueFile()
         val existing = readQueue(file)
         // Replace any existing entry for the same mission so only latest state is queued
