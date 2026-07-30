@@ -104,14 +104,15 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val _userName = MutableStateFlow("")
     val userName: StateFlow<String> = _userName
 
-    private val deviceUserId: String by lazy {
-        var id = prefs.getString("device_user_id", "") ?: ""
-        if (id.isBlank()) {
-            id = java.util.UUID.randomUUID().toString()
-            prefs.edit().putString("device_user_id", id).apply()
+    private val deviceUserId: String
+        get() {
+            var id = prefs.getString("device_user_id", "") ?: ""
+            if (id.isBlank()) {
+                id = java.util.UUID.randomUUID().toString()
+                prefs.edit().putString("device_user_id", id).apply()
+            }
+            return id
         }
-        id
-    }
 
     private val _progressSyncStatus = MutableStateFlow("Idle")
     val progressSyncStatus: StateFlow<String> = _progressSyncStatus
@@ -121,8 +122,16 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
 
     fun setUserName(name: String) {
         val trimmed = name.trim()
+        val oldName = _userName.value
         _userName.value = trimmed
         prefs.edit().putString("user_name", trimmed).apply()
+        
+        // Generate a new UUID if the name has changed to support simulating/adding multiple records from one device
+        if (trimmed.isNotBlank() && trimmed != oldName) {
+            val newId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString("device_user_id", newId).apply()
+        }
+
         // Persist to local sidecar so the name survives app restarts alongside completedPoints
         viewModelScope.launch(Dispatchers.IO) {
             val missionId = _currentMissionId.value
