@@ -267,8 +267,12 @@ class SupabaseSyncTest {
                 "points": []
             }
         """.trimIndent()
-        syncManager.openAssetInputStream = { _ ->
-            java.io.ByteArrayInputStream(assetJson.toByteArray())
+        syncManager.openAssetInputStream = { path ->
+            if (path.endsWith(".json")) {
+                java.io.ByteArrayInputStream(assetJson.toByteArray())
+            } else {
+                throw java.io.FileNotFoundException("Asset not found: $path")
+            }
         }
 
         // Call sync()
@@ -300,8 +304,12 @@ class SupabaseSyncTest {
                 "points": []
             }
         """.trimIndent()
-        syncManager.openAssetInputStream = { _ ->
-            java.io.ByteArrayInputStream(assetJson.toByteArray())
+        syncManager.openAssetInputStream = { path ->
+            if (path.endsWith(".json")) {
+                java.io.ByteArrayInputStream(assetJson.toByteArray())
+            } else {
+                throw java.io.FileNotFoundException("Asset not found: $path")
+            }
         }
 
         // Call sync()
