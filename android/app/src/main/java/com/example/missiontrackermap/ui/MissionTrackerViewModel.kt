@@ -683,8 +683,9 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
                 val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 Log.i(TAG, "Network default capabilities changed: validated=$validated")
                 if (validated) {
-                    Log.i(TAG, "Network validated with internet access, flushing progress queue")
+                    Log.i(TAG, "Network validated with internet access, flushing progress queue and syncing missions")
                     flushProgressQueue()
+                    syncMissions()
                 }
             }
         }
