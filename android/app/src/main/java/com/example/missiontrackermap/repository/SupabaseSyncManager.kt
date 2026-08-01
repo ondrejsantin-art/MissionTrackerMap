@@ -84,10 +84,25 @@ class SupabaseSyncManager(
         }
     }
 
+    // Visible for testing
+    internal var openAssetInputStream: (String) -> java.io.InputStream = { path ->
+        context.assets.open(path)
+    }
+
     private fun getLocalMissionVersion(missionId: String): Int? {
         val localMissionDir = File(File(context.filesDir, MISSIONS_ROOT), missionId)
         val calibrationFile = File(localMissionDir, "$missionId.json")
-        if (!localMissionDir.exists() || !calibrationFile.exists()) return null
+        if (!localMissionDir.exists() || !calibrationFile.exists()) {
+            // Check assets fallback to avoid downloading pre-packaged missions on first run
+            return try {
+                val path = "$MISSIONS_ROOT/$missionId/$missionId.json"
+                val rawJson = openAssetInputStream(path).bufferedReader().use { it.readText() }
+                val calibration = json.decodeFromString<CalibrationData>(rawJson)
+                calibration.version
+            } catch (e: Exception) {
+                null
+            }
+        }
 
         return try {
             val rawJson = calibrationFile.readText()

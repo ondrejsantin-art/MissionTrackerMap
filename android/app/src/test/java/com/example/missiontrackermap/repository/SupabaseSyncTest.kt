@@ -45,18 +45,32 @@ class SupabaseSyncTest {
         var lastIfNoneMatchHeader: String? = null
         var responseEtag: String? = "\"test-etag-123\""
         var return304 = false
+        var remoteVersion = 2
 
         override fun intercept(chain: Interceptor.Chain): Response {
             val request = chain.request()
             val urlString = request.url.toString()
 
-            if (urlString.contains("/rest/v1/missions")) {
+            if (urlString.contains("select=id")) {
+                val jsonResponse = """
+                    [
+                        {"id": "test-mission", "version": $remoteVersion}
+                    ]
+                """.trimIndent()
+                return Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(jsonResponse.toResponseBody("application/json".toMediaType()))
+                    .build()
+            } else if (urlString.contains("/rest/v1/missions")) {
                 val jsonResponse = """
                     [
                         {
-                            "version": 2,
+                            "version": $remoteVersion,
                             "json_data": {
-                                "version": 2,
+                                "version": $remoteVersion,
                                 "image": "test-image.png",
                                 "imageWidth": 100,
                                 "imageHeight": 100,
@@ -233,5 +247,75 @@ class SupabaseSyncTest {
         assertEquals(1, calibration.points.size)
         assertEquals("01", calibration.points[0].name)
         assertEquals("Objective 1", calibration.points[0].missionObjective)
+    }
+
+    @Test
+    fun sync_missionInAssetsAndUpToDate_skipsDownload() {
+        val interceptor = MockInterceptor().apply {
+            remoteVersion = 2
+        }
+        val client = OkHttpClient.Builder().addInterceptor(interceptor).build()
+        val syncManager = SupabaseSyncManager(mockContext, client)
+
+        // Mock asset version to be 2
+        val assetJson = """
+            {
+                "version": 2,
+                "image": "test-image.png",
+                "imageWidth": 100,
+                "imageHeight": 100,
+                "points": []
+            }
+        """.trimIndent()
+        syncManager.openAssetInputStream = { _ ->
+            java.io.ByteArrayInputStream(assetJson.toByteArray())
+        }
+
+        // Call sync()
+        val success = syncManager.sync()
+        assertTrue(success)
+
+        // Verification: imageRequestsCount should be 0 because version is matching, and local filesDir shouldn't have the file
+        assertEquals(0, interceptor.imageRequestsCount)
+        val missionDir = File(File(tempDir, "missions"), "test-mission")
+        val calibrationFile = File(missionDir, "test-mission.json")
+        assertTrue(!calibrationFile.exists(), "Calibration file should not be created in filesDir since asset was up-to-date")
+    }
+
+    @Test
+    fun sync_missionInAssetsButOutdated_downloadsNewVersion() {
+        val interceptor = MockInterceptor().apply {
+            remoteVersion = 3 // Remote is newer (version 3)
+        }
+        val client = OkHttpClient.Builder().addInterceptor(interceptor).build()
+        val syncManager = SupabaseSyncManager(mockContext, client)
+
+        // Mock asset version to be 2
+        val assetJson = """
+            {
+                "version": 2,
+                "image": "test-image.png",
+                "imageWidth": 100,
+                "imageHeight": 100,
+                "points": []
+            }
+        """.trimIndent()
+        syncManager.openAssetInputStream = { _ ->
+            java.io.ByteArrayInputStream(assetJson.toByteArray())
+        }
+
+        // Call sync()
+        val success = syncManager.sync()
+        assertTrue(success)
+
+        // Verification: imageRequestsCount should be 1, and local filesDir should have the new version (3) saved
+        assertEquals(1, interceptor.imageRequestsCount)
+        val missionDir = File(File(tempDir, "missions"), "test-mission")
+        val calibrationFile = File(missionDir, "test-mission.json")
+        assertTrue(calibrationFile.exists(), "Calibration file should be created in filesDir")
+        
+        val localJson = calibrationFile.readText()
+        val calibration = json.decodeFromString<CalibrationData>(localJson)
+        assertEquals(3, calibration.version)
     }
 }
