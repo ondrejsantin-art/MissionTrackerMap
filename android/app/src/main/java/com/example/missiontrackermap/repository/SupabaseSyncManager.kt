@@ -217,6 +217,7 @@ class SupabaseSyncManager(
                 }
                 Log.d(TAG, "Successfully downloaded image '$imageName' to ${imageFile.absolutePath}")
             }
+            Unit
         }
 
         // 4. Save JSON only after image succeeds to prevent partial corrupt states
