@@ -1,4 +1,4 @@
-# MissionTrackerMap Release v1.7.0
+# MissionTrackerMap Release v1.6.0
 
 ## Features & Improvements
 
