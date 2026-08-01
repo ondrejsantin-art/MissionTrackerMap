@@ -84,10 +84,25 @@ class SupabaseSyncManager(
         }
     }
 
+    // Visible for testing
+    internal var openAssetInputStream: (String) -> java.io.InputStream = { path ->
+        context.assets.open(path)
+    }
+
     private fun getLocalMissionVersion(missionId: String): Int? {
         val localMissionDir = File(File(context.filesDir, MISSIONS_ROOT), missionId)
         val calibrationFile = File(localMissionDir, "$missionId.json")
-        if (!localMissionDir.exists() || !calibrationFile.exists()) return null
+        if (!localMissionDir.exists() || !calibrationFile.exists()) {
+            // Check assets fallback to avoid downloading pre-packaged missions on first run
+            return try {
+                val path = "$MISSIONS_ROOT/$missionId/$missionId.json"
+                val rawJson = openAssetInputStream(path).bufferedReader().use { it.readText() }
+                val calibration = json.decodeFromString<CalibrationData>(rawJson)
+                calibration.version
+            } catch (e: Exception) {
+                null
+            }
+        }
 
         return try {
             val rawJson = calibrationFile.readText()
@@ -143,7 +158,18 @@ class SupabaseSyncManager(
         // 3. Download the map image
         val imageFile = File(localMissionDir, imageName)
         val etagFile = File(localMissionDir, "$imageName.etag")
-        val cachedEtag = if (etagFile.exists() && imageFile.exists()) etagFile.readText().trim() else null
+        
+        var cachedEtag = if (etagFile.exists() && imageFile.exists()) etagFile.readText().trim() else null
+        
+        // If no internal etag, try to read bundled asset etag to avoid full download on first run
+        if (cachedEtag == null) {
+            try {
+                val assetEtagPath = "$MISSIONS_ROOT/$missionId/$imageName.etag"
+                cachedEtag = openAssetInputStream(assetEtagPath).bufferedReader().use { it.readText().trim() }
+            } catch (e: Exception) {
+                // Ignore, no bundled etag exists
+            }
+        }
 
         val imageUrl = "${SupabaseConfig.URL}/storage/v1/object/public/mission-images/$missionId/$imageName"
         val imageRequest = Request.Builder()
@@ -160,6 +186,22 @@ class SupabaseSyncManager(
         client.newCall(imageRequest).execute().use { response ->
             if (response.code == 304) {
                 Log.i(TAG, "Image '$imageName' is up-to-date (304 Not Modified). Skipping download.")
+                
+                // If the file isn't in internal storage (e.g. first run using asset ETag), copy it from assets now
+                if (!imageFile.exists()) {
+                    try {
+                        val assetImagePath = "$MISSIONS_ROOT/$missionId/$imageName"
+                        openAssetInputStream(assetImagePath).use { input ->
+                            imageFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        if (cachedEtag != null) etagFile.writeText(cachedEtag)
+                        Log.i(TAG, "Successfully copied bundled image '$imageName' to internal storage.")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to copy image from assets: ${e.message}")
+                    }
+                }
             } else {
                 if (!response.isSuccessful) throw IOException("Failed to download image '$imageName': HTTP ${response.code}")
                 val bytes = response.body?.bytes() ?: throw IOException("Image response body is null")
@@ -175,6 +217,7 @@ class SupabaseSyncManager(
                 }
                 Log.d(TAG, "Successfully downloaded image '$imageName' to ${imageFile.absolutePath}")
             }
+            Unit
         }
 
         // 4. Save JSON only after image succeeds to prevent partial corrupt states

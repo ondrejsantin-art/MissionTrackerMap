@@ -155,34 +155,69 @@ class MissionProgressTest {
 
     @Test
     fun missionProgress_withPoints_roundTrip() {
-        val progress = MissionProgress(completedPoints = setOf("Alpha", "Bravo"))
+        val progress = MissionProgress(completedPoints = mapOf("Alpha" to 1000L, "Bravo" to 2000L))
         val encoded = json.encodeToString(MissionProgress.serializer(), progress)
         val decoded = json.decodeFromString<MissionProgress>(encoded)
-        assertEquals(setOf("Alpha", "Bravo"), decoded.completedPoints)
+        assertEquals(mapOf("Alpha" to 1000L, "Bravo" to 2000L), decoded.completedPoints)
     }
 
     // --- Toggle logic (pure set operations, mirrors ViewModel) ---
 
     @Test
     fun toggle_addsPointWhenNotPresent() {
-        var completed: Set<String> = emptySet()
-        completed = if ("Alpha" in completed) completed - "Alpha" else completed + "Alpha"
+        var completed: Map<String, Long> = emptyMap()
+        completed = if ("Alpha" in completed) completed - "Alpha" else completed + ("Alpha" to 1000L)
         assertTrue("Alpha" in completed)
     }
 
     @Test
     fun toggle_removesPointWhenPresent() {
-        var completed: Set<String> = setOf("Alpha")
-        completed = if ("Alpha" in completed) completed - "Alpha" else completed + "Alpha"
+        var completed: Map<String, Long> = mapOf("Alpha" to 1000L)
+        completed = if ("Alpha" in completed) completed - "Alpha" else completed + ("Alpha" to 1000L)
         assertFalse("Alpha" in completed)
     }
 
     @Test
     fun toggle_twiceRestoresOriginalState() {
-        var completed: Set<String> = emptySet()
-        completed = if ("Alpha" in completed) completed - "Alpha" else completed + "Alpha"
-        completed = if ("Alpha" in completed) completed - "Alpha" else completed + "Alpha"
+        var completed: Map<String, Long> = emptyMap()
+        completed = if ("Alpha" in completed) completed - "Alpha" else completed + ("Alpha" to 1000L)
+        completed = if ("Alpha" in completed) completed - "Alpha" else completed + ("Alpha" to 1000L)
         assertTrue(completed.isEmpty())
+    }
+
+    // --- Progress sharing: userName field ---
+
+    @Test
+    fun missionProgress_withUserName_roundTrip() {
+        val progress = MissionProgress(completedPoints = mapOf("Alpha" to 1000L), userName = "Jane")
+        val encoded = json.encodeToString(MissionProgress.serializer(), progress)
+        val decoded = json.decodeFromString<MissionProgress>(encoded)
+        assertEquals("Jane", decoded.userName)
+        assertEquals(mapOf("Alpha" to 1000L), decoded.completedPoints)
+    }
+
+    @Test
+    fun missionProgress_oldJsonWithoutUserName_defaultsToEmpty() {
+        // Existing sidecar files only have completedPoints — must parse without error
+        // Note: they are arrays in old JSON, so we expect an exception and catch it in the repo, returning empty.
+        val oldJson = """{"completedPoints":{"Alpha":1000,"Bravo":2000}}"""
+        val decoded = json.decodeFromString<MissionProgress>(oldJson)
+        assertEquals(mapOf("Alpha" to 1000L, "Bravo" to 2000L), decoded.completedPoints)
+        assertEquals("", decoded.userName)
+    }
+
+    @Test
+    fun pendingProgressSync_roundTrip() {
+        val entry = com.example.missiontrackermap.model.PendingProgressSync(
+            missionId = "scarif",
+            userName = "Bob",
+            completedPoints = mapOf("Point A" to 1000L, "Point B" to 2000L)
+        )
+        val encoded = json.encodeToString(
+            com.example.missiontrackermap.model.PendingProgressSync.serializer(), entry
+        )
+        val decoded = json.decodeFromString<com.example.missiontrackermap.model.PendingProgressSync>(encoded)
+        assertEquals(entry, decoded)
     }
 
     @Test

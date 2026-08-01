@@ -39,6 +39,13 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.missiontrackermap.model.UserProgressEntry
+import com.example.missiontrackermap.repository.MissionProgressSyncManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.content.Context
 
 private const val TAG = "MissionTrackerViewModel"
 
@@ -56,6 +63,7 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private val repository = MissionTrackerRepository(application)
     private val locationProvider = FusedLocationProvider(application)
     private val orientationProvider = OrientationProvider(application)
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val credentialManager = CredentialManager(application)
     private val authManager = SupabaseAuthManager()
 
@@ -92,25 +100,128 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     val loginEmail: StateFlow<String> = _loginEmail
 
     // --- Mission progress ---
-    private val _completedPoints = MutableStateFlow<Set<String>>(emptySet())
-    val completedPoints: StateFlow<Set<String>> = _completedPoints
+    private val _completedPoints = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val completedPoints: StateFlow<Map<String, Long>> = _completedPoints
+
+    // --- User name for progress sharing ---
+    private val prefs by lazy {
+        getApplication<Application>().getSharedPreferences("mission_tracker_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    private val _userName = MutableStateFlow("")
+    val userName: StateFlow<String> = _userName
+
+    private val deviceUserId: String
+        get() {
+            var id = prefs.getString("device_user_id", "") ?: ""
+            if (id.isBlank()) {
+                id = java.util.UUID.randomUUID().toString()
+                prefs.edit().putString("device_user_id", id).apply()
+            }
+            return id
+        }
+
+    private val _progressSyncStatus = MutableStateFlow("Idle")
+    val progressSyncStatus: StateFlow<String> = _progressSyncStatus
+
+    private val _allUserProgress = MutableStateFlow<List<UserProgressEntry>>(emptyList())
+    val allUserProgress: StateFlow<List<UserProgressEntry>> = _allUserProgress
+
+    fun setUserName(name: String) {
+        val trimmed = name.trim()
+        val oldName = _userName.value
+        _userName.value = trimmed
+        prefs.edit().putString("user_name", trimmed).apply()
+        
+        // Generate a new UUID if the name has changed to support simulating/adding multiple records from one device
+        if (trimmed.isNotBlank() && trimmed != oldName) {
+            val newId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString("device_user_id", newId).apply()
+        }
+
+        // Persist to local sidecar so the name survives app restarts alongside completedPoints
+        viewModelScope.launch(Dispatchers.IO) {
+            val missionId = _currentMissionId.value
+            val existing = repository.loadProgress(missionId)
+            repository.saveProgress(missionId, existing.copy(userName = trimmed))
+        }
+    }
 
     fun toggleMissionPoint(pointName: String) {
         val current = _completedPoints.value
         _completedPoints.value = if (pointName in current) {
             current - pointName
         } else {
-            current + pointName
+            current + (pointName to System.currentTimeMillis())
         }
+        val missionId = _currentMissionId.value
+        val points = _completedPoints.value
+        val name = _userName.value
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveProgress(_currentMissionId.value, MissionProgress(_completedPoints.value))
+            repository.saveProgress(missionId, MissionProgress(points, name))
+            if (name.isNotBlank()) {
+                pushProgress(missionId, name, points)
+            }
         }
     }
 
     fun resetMission() {
-        _completedPoints.value = emptySet()
+        _completedPoints.value = emptyMap()
+        val missionId = _currentMissionId.value
+        val name = _userName.value
         viewModelScope.launch(Dispatchers.IO) {
-            repository.clearProgress(_currentMissionId.value)
+            repository.clearProgress(missionId)
+            // Push empty set to Supabase so the owner sees the reset
+            if (name.isNotBlank()) {
+                pushProgress(missionId, name, emptyMap())
+            }
+        }
+    }
+
+    /**
+     * Upsert progress to Supabase. On failure, enqueues locally for retry.
+     * Must be called from an IO coroutine.
+     */
+    private fun pushProgress(missionId: String, userName: String, completedPoints: Map<String, Long>) {
+        val syncMgr = MissionProgressSyncManager(getApplication())
+        _progressSyncStatus.value = "Syncing"
+        val uid = if (authManager.isAuthenticated) authManager.getUserId() ?: deviceUserId else deviceUserId
+        val ok = syncMgr.pushProgress(missionId, userName, completedPoints, uid)
+        if (ok) {
+            _progressSyncStatus.value = "OK"
+            // Opportunistically flush the queue
+            syncMgr.flushPendingQueue(uid)
+        } else {
+            _progressSyncStatus.value = "Queued"
+            syncMgr.enqueue(missionId, userName, completedPoints)
+        }
+    }
+
+    /** Flush the offline progress queue. Call on network restored or app resume. */
+    fun flushProgressQueue() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val syncMgr = MissionProgressSyncManager(getApplication())
+            if (!syncMgr.hasPendingEntries()) return@launch
+            
+            _progressSyncStatus.value = "Syncing"
+            // Wait a brief moment for DNS/routing to fully settle after network connects
+            kotlinx.coroutines.delay(1000)
+            
+            val uid = if (authManager.isAuthenticated) authManager.getUserId() ?: deviceUserId else deviceUserId
+            syncMgr.flushPendingQueue(uid)
+            
+            if (syncMgr.hasPendingEntries()) {
+                _progressSyncStatus.value = "Queued"
+            } else {
+                _progressSyncStatus.value = "OK"
+            }
+        }
+    }
+
+    /** Fetch all participant progress for [missionId]. */
+    fun fetchAllUserProgress(missionId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = MissionProgressSyncManager(getApplication()).fetchAllProgress(missionId)
+            _allUserProgress.value = list
         }
     }
 
@@ -161,10 +272,12 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     init {
+        _userName.value = prefs.getString("user_name", "") ?: ""
         refreshMissions()
         loadMission("scarif")
         syncMissions()
         autoLogin()
+        registerNetworkCallback()
     }
 
     /** Auto-login with saved credentials on startup. */
@@ -548,6 +661,52 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
         } catch (e: Exception) {
             Log.e(TAG, "Publish error: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        val connectivityManager = getApplication<Application>()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                super.onAvailable(network)
+                Log.i(TAG, "Network default: onAvailable")
+            }
+
+            override fun onLost(network: Network) {
+                super.onLost(network)
+                Log.i(TAG, "Network default: onLost")
+            }
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                super.onCapabilitiesChanged(network, capabilities)
+                val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                Log.i(TAG, "Network default capabilities changed: validated=$validated")
+                if (validated) {
+                    Log.i(TAG, "Network validated with internet access, flushing progress queue and syncing missions")
+                    flushProgressQueue()
+                    syncMissions()
+                }
+            }
+        }
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Failed to register network callback due to missing permission: ${e.message}")
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        networkCallback?.let { callback ->
+            val connectivityManager = getApplication<Application>()
+                .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            try {
+                connectivityManager.unregisterNetworkCallback(callback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to unregister network callback: ${e.message}")
+            }
         }
     }
 }
