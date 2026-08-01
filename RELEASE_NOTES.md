@@ -1,3 +1,16 @@
+# MissionTrackerMap Release v1.7.0
+
+## Features & Improvements
+
+### 📱 Android Tracker App
+- **Automated Sync**: Trigger mission sync automatically on network connection and use default network callback to flush progress.
+- **Offline Reliability**: Prevent app crashes when fetching participant progress offline and resolve various offline syncing issues.
+- **First Run Optimizations**: Check assets version and prevent heavy image downloads on first run using bundled etags.
+- **Enhanced Tracking**: Implement per-point completion timestamps and expandable participant details.
+- **Sharing Updates**: Add anonymous progress sharing and generate a new UUID when the user name changes.
+
+---
+
 # MissionTrackerMap Release v1.5.0
 
 ## Features & Improvements

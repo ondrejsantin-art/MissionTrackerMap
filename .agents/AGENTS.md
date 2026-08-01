@@ -6,5 +6,9 @@ android run --apks=android/app/build/outputs/apk/debug/MissionTrackerMap-debug.a
 ```
 
 - Always write unit tests for any newly developed features and validate the code against them.
-- Always update the version string in android/app/src/main/java/com/example/missiontrackermap/ui/MapScreen.kt and the versionCode / versionName in android/app/build.gradle.kts when releasing new versions.
-
+- When creating a new release:
+  1. Generate release notes from recent commits and prepend to `RELEASE_NOTES.md`.
+  2. Update `versionCode` and `versionName` in `android/app/build.gradle.kts`.
+  3. Update the version string in `android/app/src/main/java/com/example/missiontrackermap/ui/MapScreen.kt`.
+  4. Commit changes with message `chore: prepare release vX.Y.Z` and push.
+  5. Create and push an annotated git tag for the release (e.g., `vX.Y.Z`).
