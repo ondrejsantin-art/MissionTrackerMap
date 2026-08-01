@@ -184,11 +184,12 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     private fun pushProgress(missionId: String, userName: String, completedPoints: Map<String, Long>) {
         val syncMgr = MissionProgressSyncManager(getApplication())
         _progressSyncStatus.value = "Syncing"
-        val ok = syncMgr.pushProgress(missionId, userName, completedPoints, deviceUserId)
+        val uid = if (authManager.isAuthenticated) authManager.getUserId() ?: deviceUserId else deviceUserId
+        val ok = syncMgr.pushProgress(missionId, userName, completedPoints, uid)
         if (ok) {
             _progressSyncStatus.value = "OK"
             // Opportunistically flush the queue
-            syncMgr.flushPendingQueue(deviceUserId)
+            syncMgr.flushPendingQueue(uid)
         } else {
             _progressSyncStatus.value = "Queued"
             syncMgr.enqueue(missionId, userName, completedPoints)
@@ -198,7 +199,21 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
     /** Flush the offline progress queue. Call on network restored or app resume. */
     fun flushProgressQueue() {
         viewModelScope.launch(Dispatchers.IO) {
-            MissionProgressSyncManager(getApplication()).flushPendingQueue(deviceUserId)
+            val syncMgr = MissionProgressSyncManager(getApplication())
+            if (!syncMgr.hasPendingEntries()) return@launch
+            
+            _progressSyncStatus.value = "Syncing"
+            // Wait a brief moment for DNS/routing to fully settle after network connects
+            kotlinx.coroutines.delay(1000)
+            
+            val uid = if (authManager.isAuthenticated) authManager.getUserId() ?: deviceUserId else deviceUserId
+            syncMgr.flushPendingQueue(uid)
+            
+            if (syncMgr.hasPendingEntries()) {
+                _progressSyncStatus.value = "Queued"
+            } else {
+                _progressSyncStatus.value = "OK"
+            }
         }
     }
 
@@ -673,8 +688,12 @@ class MissionTrackerViewModel(application: Application) : AndroidViewModel(appli
                 }
             }
         }
-        connectivityManager.registerDefaultNetworkCallback(callback)
-        networkCallback = callback
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Failed to register network callback due to missing permission: ${e.message}")
+        }
     }
 
     override fun onCleared() {

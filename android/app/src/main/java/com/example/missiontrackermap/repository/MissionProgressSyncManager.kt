@@ -122,12 +122,14 @@ class MissionProgressSyncManager(
     /** Append a failed push entry to the local disk queue. */
     fun enqueue(missionId: String, userName: String, completedPoints: Map<String, Long>) {
         val file = queueFile()
-        val existing = readQueue(file)
-        // Replace any existing entry for the same mission so only latest state is queued
-        val filtered = existing.entries.filter { it.missionId != missionId }
-        val updated = PendingQueue(filtered + PendingProgressSync(missionId, userName, completedPoints))
-        writeQueue(file, updated)
-        Log.d(TAG, "Queued progress for mission=$missionId (queue size=${updated.entries.size})")
+        synchronized(PendingQueue::class.java) {
+            val existing = readQueue(file)
+            // Replace any existing entry for the same mission so only latest state is queued
+            val filtered = existing.entries.filter { it.missionId != missionId }
+            val updated = PendingQueue(filtered + PendingProgressSync(missionId, userName, completedPoints))
+            writeQueue(file, updated)
+            Log.d(TAG, "Queued progress for mission=$missionId (queue size=${updated.entries.size})")
+        }
     }
 
     /**
@@ -136,17 +138,22 @@ class MissionProgressSyncManager(
      */
     fun flushPendingQueue(userId: String) {
         val file = queueFile()
-        val queue = readQueue(file)
+        val queue = synchronized(PendingQueue::class.java) { readQueue(file) }
         if (queue.entries.isEmpty()) return
 
         Log.i(TAG, "Flushing ${queue.entries.size} pending progress entries")
-        val remaining = mutableListOf<PendingProgressSync>()
+        val successful = mutableSetOf<String>()
         for (entry in queue.entries) {
             val ok = pushProgress(entry.missionId, entry.userName, entry.completedPoints, userId)
-            if (!ok) remaining.add(entry)
+            if (ok) successful.add(entry.missionId)
         }
-        writeQueue(file, PendingQueue(remaining))
-        Log.i(TAG, "Flush done: ${queue.entries.size - remaining.size} sent, ${remaining.size} still pending")
+        
+        synchronized(PendingQueue::class.java) {
+            val currentQueue = readQueue(file)
+            val remaining = currentQueue.entries.filter { it.missionId !in successful }
+            writeQueue(file, PendingQueue(remaining))
+            Log.i(TAG, "Flush done: ${successful.size} sent, ${remaining.size} still pending")
+        }
     }
 
     fun hasPendingEntries(): Boolean = readQueue(queueFile()).entries.isNotEmpty()
