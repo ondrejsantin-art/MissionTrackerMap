@@ -107,13 +107,18 @@ class MissionProgressSyncManager(
             .apply { anonHeaders.forEach { (k, v) -> addHeader(k, v) } }
             .build()
 
-        return client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                Log.w(TAG, "fetchAllProgress HTTP ${response.code}")
-                return emptyList()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "fetchAllProgress HTTP ${response.code}")
+                    return emptyList()
+                }
+                val body = response.body?.string() ?: return emptyList()
+                json.decodeFromString<List<UserProgressEntry>>(body)
             }
-            val body = response.body?.string() ?: return emptyList()
-            json.decodeFromString<List<UserProgressEntry>>(body)
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchAllProgress failed: ${e.message}")
+            emptyList()
         }
     }
 
